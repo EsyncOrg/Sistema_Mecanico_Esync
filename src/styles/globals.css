@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+/* Class-based dark mode for next-themes */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Light Mode Tokens ───────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Surfaces ── */
+  --color-background: hsl(220 18% 97%);      /* #f5f7fa */
+  --color-foreground: hsl(231 22% 20%);      /* #282a3d */
+
+  --color-card: hsl(0 0% 100%);              /* #ffffff */
+  --color-card-foreground: hsl(231 22% 20%);
+
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(231 22% 20%);
+
+  /* ── Brand ── */
+  --color-primary: hsl(192 72% 21%);         /* #0f4c5c */
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-secondary: hsl(231 22% 22%);       /* #2b2d42 */
+  --color-secondary-foreground: hsl(0 0% 100%);
+
+  /* ── Accent ── */
+  --color-accent: hsl(240 100% 25%);         /* #000080 navy */
+  --color-accent-foreground: hsl(0 0% 100%);
+
+  /* ── Muted ── */
+  --color-muted: hsl(220 16% 93%);           /* #eceff4 */
+  --color-muted-foreground: hsl(220 10% 46%);/* #6b7585 */
+
+  /* ── States ── */
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-success: hsl(158 64% 38%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-foreground: hsl(0 0% 100%);
+
+  /* ── Controls ── */
+  --color-border: hsl(220 14% 90%);          /* #e2e6ee */
+  --color-input: hsl(220 20% 97%);
+  --color-ring: hsl(240 100% 25%);
+
+  /* ── Typography ── */
+  --font-sans: var(--font-geist-sans), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* ── Shadows (light) ── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.08);
+  --shadow-topbar: 0 1px 0 rgba(0,0,0,0.06);
+
+  /* ── Animations ── */
+  --animate-fade-in: fade-in 0.4s ease-out;
+  --animate-slide-in-left: slide-in-left 0.3s ease-out;
+  --animate-shimmer: shimmer 2s infinite;
+}
+
+/* ─── Dark Mode Overrides ─────────────────────────────────────────────────── */
+
+.dark {
+  /* ── Surfaces: Soft charcoal graphite — comfortable, premium, readable ── */
+  --color-background: hsl(220 11% 15%);      /* #21252b — dark graphite */
+  --color-foreground: hsl(220 14% 90%);      /* #d8dce8 — crisp readable text */
+
+  --color-card: hsl(220 10% 19%);            /* #272c32 — elevated surface */
+  --color-card-foreground: hsl(220 14% 90%);
+
+  --color-popover: hsl(220 10% 21%);         /* #2b3037 — dropdown/modal */
+  --color-popover-foreground: hsl(220 14% 90%);
+
+  /* ── Brand: Brighter teal for dark legibility ── */
+  --color-primary: hsl(192 56% 46%);         /* #2fafcc */
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-secondary: hsl(220 10% 24%);       /* #313740 — secondary surfaces */
+  --color-secondary-foreground: hsl(220 11% 76%);/* #b3bac7 */
+
+  /* ── Accent: Cinematic navy ── */
+  --color-accent: hsl(232 62% 52%);          /* #2e4fd4 — visible navy on dark */
+  --color-accent-foreground: hsl(0 0% 100%);
+
+  /* ── Muted ── */
+  --color-muted: hsl(220 10% 22%);           /* #2d3239 — muted zones */
+  --color-muted-foreground: hsl(220 9% 60%); /* #8a9099 — secondary labels */
+
+  /* ── States ── */
+  --color-destructive: hsl(0 66% 56%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-success: hsl(158 52% 44%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(38 86% 54%);
+  --color-warning-foreground: hsl(0 0% 100%);
+
+  /* ── Controls ── */
+  --color-border: hsl(220 9% 28%);           /* #3b4250 — clear but soft */
+  --color-input: hsl(220 12% 13%);           /* #1c2028 — sunken input wells */
+  --color-ring: hsl(232 62% 52%);
+
+  /* ── Shadows: Soft, depth without drama ── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.14);
+  --shadow-card-hover: 0 4px 20px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.28);
+  --shadow-topbar: 0 1px 0 rgba(0,0,0,0.20);
+}
+
+/* ─── Sidebar Tokens (managed outside Tailwind @theme) ───────────────────── */
+
+:root {
+  /* Light mode sidebar: #515151 */
+  --sidebar-gradient: linear-gradient(180deg, #515151 0%, #424242 100%);
+  --sidebar-border-color: rgba(255, 255, 255, 0.07);
+  --sidebar-item-text: rgba(255, 255, 255, 0.58);
+  --sidebar-item-text-active: #ffffff;
+  --sidebar-item-active-bg: rgba(255, 255, 255, 0.13);
+  --sidebar-item-hover-bg: rgba(255, 255, 255, 0.07);
+  --sidebar-section-label: rgba(255, 255, 255, 0.28);
+  --sidebar-logo-text: #ffffff;
+  --sidebar-subtext: rgba(255, 255, 255, 0.38);
+  --sidebar-user-text: rgba(255, 255, 255, 0.82);
+  --sidebar-badge-bg: hsl(240 100% 25%);
+  --sidebar-dot-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-indicator: hsl(240 100% 25%);
+}
+
+/* Dark mode sidebar: identical to light — no override needed */
+
+/* ─── Keyframes ───────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Global Base ─────────────────────────────────────────────────────────── */
+
+/* Smooth theme transitions */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: ease;
+}
+
+/* Opt-out for motion-sensitive elements */
+[data-no-theme-transition],
+[data-no-theme-transition] * {
+  transition: none !important;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-feature-settings: 'rlig' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: hsl(220 13% 82%);
+  border-radius: 999px;
+}
+.dark ::-webkit-scrollbar-thumb { background: hsl(220 9% 34%); }
+
+::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
+
+/* ─── Utility Classes ─────────────────────────────────────────────────────── */
+
+.card-elevated {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-elevated:hover { box-shadow: var(--shadow-card-hover); }
+
+/* Dark mode glow on primary elements */
+.dark .glow-primary {
+  box-shadow: 0 0 20px rgba(47, 175, 204, 0.18);
+}
+.dark .glow-accent {
+  box-shadow: 0 0 20px rgba(46, 79, 212, 0.30);
+}
