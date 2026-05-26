@@ -261,15 +261,30 @@ function CornerBracket({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
 
 // ─── Floating particles ───────────────────────────────────────────────────────
 
+interface Particle {
+  id: number
+  x: number
+  y: number
+  size: number
+  duration: number
+  delay: number
+}
+
 function Particles() {
-  const particles = Array.from({ length: 18 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 2 + 1,
-    duration: Math.random() * 20 + 15,
-    delay: Math.random() * -20,
-  }))
+  const [particles, setParticles] = useState<Particle[]>([])
+
+  useEffect(() => {
+    setParticles(
+      Array.from({ length: 18 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 2 + 1,
+        duration: Math.random() * 20 + 15,
+        delay: Math.random() * -20,
+      }))
+    )
+  }, [])
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">

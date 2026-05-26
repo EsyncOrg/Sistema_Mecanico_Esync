@@ -4,6 +4,8 @@ import '@/styles/globals.css'
 import { APP_NAME, APP_DESCRIPTION } from '@/lib/constants'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { EstoqueProvider } from '@/contexts/EstoqueContext'
+import { DobraProvider } from '@/contexts/DobraContext'
 import { Toaster } from '@/components/ui/toast'
 
 const geistSans = Geist({
@@ -39,8 +41,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           storageKey="forge-erp-theme"
         >
           <AuthProvider>
-            {children}
-            <Toaster />
+            <EstoqueProvider>
+              <DobraProvider>
+                {children}
+                <Toaster />
+              </DobraProvider>
+            </EstoqueProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

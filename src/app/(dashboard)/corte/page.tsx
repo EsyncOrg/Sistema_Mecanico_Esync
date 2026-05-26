@@ -20,6 +20,7 @@ import {
   Tag,
   Download,
   FileText,
+  PackageCheck,
 } from 'lucide-react'
 import {
   BarChart,
@@ -51,6 +52,9 @@ import {
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
+import { OS_ESTOQUE } from '@/types/estoque'
+import { useDobra } from '@/contexts/DobraContext'
+import { Input } from '@/components/ui/input'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,8 +65,11 @@ type ReportPeriod = 'hoje' | 'semana' | 'mes'
 
 interface OrdemServico {
   numero: string
+  codigoPeca: string
   peca: string
   quantidade: number
+  material: string
+  espessura: number
 }
 
 interface PausaRegistro {
@@ -194,8 +201,8 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Inox 304',
       quantidadeProgramada: 24,
       ordens: [
-        { numero: 'OS-1021', peca: 'Flange DN150 PN16', quantidade: 12 },
-        { numero: 'OS-1022', peca: 'Flange DN150 PN25', quantidade: 12 },
+        { numero: 'OS:1508', codigoPeca: 'FLG-150-PN16', peca: 'Flange DN150 PN16', quantidade: 12, material: 'Aço Inox 304', espessura: 12.7 },
+        { numero: 'OS:1508', codigoPeca: 'FLG-150-PN25', peca: 'Flange DN150 PN25', quantidade: 12, material: 'Aço Inox 304', espessura: 12.7 },
       ],
       prioridade: 'alta',
       tempoEstimadoMin: 45,
@@ -216,7 +223,7 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Inox 316',
       quantidadeProgramada: 60,
       ordens: [
-        { numero: 'OS-1025', peca: 'Chapa recortada 500x300', quantidade: 60 },
+        { numero: 'OS:1025', codigoPeca: 'CHP-500-300', peca: 'Chapa recortada 500x300', quantidade: 60, material: 'Aço Inox 316', espessura: 3.0 },
       ],
       prioridade: 'media',
       tempoEstimadoMin: 12,
@@ -237,8 +244,8 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Carbono 1020',
       quantidadeProgramada: 18,
       ordens: [
-        { numero: 'OS-1018', peca: 'Suporte L-200 Esq.', quantidade: 9 },
-        { numero: 'OS-1019', peca: 'Suporte L-200 Dir.', quantidade: 9 },
+        { numero: 'OS:1508', codigoPeca: 'SUP-L200-E', peca: 'Suporte L-200 Esq.', quantidade: 9, material: 'Aço Carbono 1020', espessura: 6.0 },
+        { numero: 'OS:1019', codigoPeca: 'SUP-L200-D', peca: 'Suporte L-200 Dir.', quantidade: 9, material: 'Aço Carbono 1020', espessura: 6.0 },
       ],
       prioridade: 'alta',
       tempoEstimadoMin: 28,
@@ -267,8 +274,8 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Carbono 1020',
       quantidadeProgramada: 40,
       ordens: [
-        { numero: 'OS-1010', peca: 'Perfil U 100x50', quantidade: 20 },
-        { numero: 'OS-1011', peca: 'Perfil U 150x75', quantidade: 20 },
+        { numero: 'OS:1010', codigoPeca: 'PFU-100x50', peca: 'Perfil U 100x50', quantidade: 20, material: 'Aço Carbono 1020', espessura: 4.0 },
+        { numero: 'OS:1508', codigoPeca: 'PFU-150x75', peca: 'Perfil U 150x75', quantidade: 20, material: 'Aço Carbono 1020', espessura: 5.0 },
       ],
       prioridade: 'media',
       tempoEstimadoMin: 20,
@@ -289,7 +296,7 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Carbono 1045',
       quantidadeProgramada: 8,
       ordens: [
-        { numero: 'OS-1005', peca: 'Eixo Ø50 L=300', quantidade: 8 },
+        { numero: 'OS:1005', codigoPeca: 'EXO-50-300', peca: 'Eixo Ø50 L=300', quantidade: 8, material: 'Aço Carbono 1045', espessura: 50.0 },
       ],
       prioridade: 'baixa',
       tempoEstimadoMin: 65,
@@ -318,8 +325,8 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Alumínio 6061',
       quantidadeProgramada: 12,
       ordens: [
-        { numero: 'OS-1030', peca: 'Tampa CNC-003 Sup.', quantidade: 6 },
-        { numero: 'OS-1031', peca: 'Tampa CNC-003 Inf.', quantidade: 6 },
+        { numero: 'OS:1508', codigoPeca: 'TPR-CNC3-S', peca: 'Tampa CNC-003 Sup.', quantidade: 6, material: 'Alumínio 6061', espessura: 4.0 },
+        { numero: 'OS:1508', codigoPeca: 'TPR-CNC3-I', peca: 'Tampa CNC-003 Inf.', quantidade: 6, material: 'Alumínio 6061', espessura: 4.0 },
       ],
       prioridade: 'media',
       tempoEstimadoMin: 38,
@@ -340,8 +347,8 @@ function buildInitialSessions(): SessaoProducao[] {
       material: 'Aço Carbono 1020',
       quantidadeProgramada: 30,
       ordens: [
-        { numero: 'OS-1033', peca: 'Perfil Estrutural A', quantidade: 15 },
-        { numero: 'OS-1034', peca: 'Perfil Estrutural B', quantidade: 15 },
+        { numero: 'OS:1508', codigoPeca: 'PFE-A-300', peca: 'Perfil Estrutural A', quantidade: 15, material: 'Aço Carbono 1020', espessura: 8.0 },
+        { numero: 'OS:1034', codigoPeca: 'PFE-B-300', peca: 'Perfil Estrutural B', quantidade: 15, material: 'Aço Carbono 1020', espessura: 8.0 },
       ],
       prioridade: 'alta',
       tempoEstimadoMin: 22,
@@ -409,7 +416,7 @@ function OSDistributionBar({ ordens, producaoSecs }: { ordens: OrdemServico[]; p
       {ordens.map((os, i) => {
         const pct = Math.round(100 / ordens.length)
         return (
-          <div key={os.numero} className="space-y-0.5">
+          <div key={`${os.numero}-${i}`} className="space-y-0.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-foreground">{os.numero}</span>
               <span className="text-muted-foreground">{fmtHM(secsPerOS)}</span>
@@ -519,6 +526,150 @@ function PauseModal({
   )
 }
 
+function ConfirmacaoProducaoModal({
+  open,
+  session,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean
+  session: SessaoProducao | null
+  onClose: () => void
+  onConfirm: (realQtys: Record<string, number>) => void
+}) {
+  const [qtys, setQtys] = useState<Record<string, number>>({})
+  const [qualidadeOk, setQualidadeOk] = useState(false)
+
+  useEffect(() => {
+    if (session) {
+      const initial: Record<string, number> = {}
+      session.ordens.forEach((o) => { initial[o.codigoPeca] = o.quantidade })
+      setQtys(initial)
+      setQualidadeOk(false)
+    }
+  }, [session])
+
+  const estoqueOrdens = session?.ordens.filter((o) => o.numero === OS_ESTOQUE) ?? []
+  const outrasOrdens = session?.ordens.filter((o) => o.numero !== OS_ESTOQUE) ?? []
+
+  function handleConfirm() {
+    if (!qualidadeOk || !session) return
+    onConfirm(qtys)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PackageCheck size={15} className="text-accent" />
+            Confirmar Finalização — {session?.nome}
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-5 pb-2">
+          <p className="text-sm text-muted-foreground">
+            Informe as quantidades reais produzidas. Peças destinadas ao estoque (OS:1508) serão lançadas automaticamente no inventário.
+          </p>
+
+          {estoqueOrdens.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-accent/10 px-2 py-0.5 text-xs font-bold text-accent">
+                  OS:1508 — Entrará no Estoque após Dobra
+                </span>
+              </div>
+              {estoqueOrdens.map((os) => (
+                <div key={os.codigoPeca} className="rounded-lg border border-accent/20 bg-accent/5 p-3">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{os.peca}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{os.codigoPeca}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {os.material} · Esp. {os.espessura}mm
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      Programado: {os.quantidade}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs whitespace-nowrap">Qtd. Real:</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={qtys[os.codigoPeca] ?? os.quantidade}
+                      onChange={(e) =>
+                        setQtys((prev) => ({ ...prev, [os.codigoPeca]: parseInt(e.target.value) || 0 }))
+                      }
+                      className="h-7 w-24 text-sm"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {outrasOrdens.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Ordens de Cliente (não entram no estoque)
+              </p>
+              {outrasOrdens.map((os) => (
+                <div
+                  key={os.codigoPeca}
+                  className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
+                >
+                  <div>
+                    <span className="text-xs font-semibold text-foreground">{os.peca}</span>
+                    <span className="ml-2 text-xs font-mono text-muted-foreground">{os.numero}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{os.quantidade} pç</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <label
+            className={cn(
+              'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors',
+              qualidadeOk
+                ? 'border-success/30 bg-success/5'
+                : 'border-border hover:border-muted-foreground/30'
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={qualidadeOk}
+              onChange={(e) => setQualidadeOk(e.target.checked)}
+              className="h-4 w-4 accent-green-600"
+            />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Qualidade verificada</p>
+              <p className="text-xs text-muted-foreground">
+                Confirmo que as peças foram inspecionadas e aprovadas
+              </p>
+            </div>
+          </label>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            disabled={!qualidadeOk}
+            className="gap-1.5 bg-accent hover:bg-accent/90 text-white disabled:opacity-50"
+            onClick={handleConfirm}
+          >
+            <PackageCheck size={13} />
+            {estoqueOrdens.length > 0 ? 'Finalizar e Registrar Estoque' : 'Finalizar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function ProductionCard({
   sess,
   now,
@@ -613,9 +764,9 @@ function ProductionCard({
 
         {/* OS list */}
         <div className="flex flex-wrap gap-1">
-          {sess.ordens.map((os) => (
+          {sess.ordens.map((os, i) => (
             <span
-              key={os.numero}
+              key={`${sess.id}-${os.numero}-${i}`}
               className="rounded-md border border-accent/20 bg-accent/5 px-1.5 py-0.5 text-[10px] font-semibold text-accent"
             >
               {os.numero}
@@ -1138,10 +1289,12 @@ function RelatoriosView({ sessions, now }: { sessions: SessaoProducao[]; now: nu
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CortePage() {
+  const { adicionarTarefas } = useDobra()
   const [sessions, setSessions] = useState<SessaoProducao[]>(() => buildInitialSessions())
   const [activeTab, setActiveTab] = useState<TabView>('fila')
   const [statusFilter, setStatusFilter] = useState<StatusProducao | 'todos'>('todos')
   const [pauseModal, setPauseModal] = useState<{ open: boolean; sessionId: string | null }>({ open: false, sessionId: null })
+  const [confirmacaoModal, setConfirmacaoModal] = useState<{ open: boolean; sessionId: string | null }>({ open: false, sessionId: null })
   const [, setTick] = useState(0)
   const [now, setNow] = useState(() => Date.now())
 
@@ -1198,7 +1351,6 @@ export default function CortePage() {
   function finalizar(id: string) {
     const fim = new Date()
     mutate(id, (s) => {
-      // Close any open pauses
       const pausas = s.pausas.map((p) => {
         if (p.fim !== null) return p
         const dur = Math.floor((fim.getTime() - p.inicio.getTime()) / 1000)
@@ -1207,6 +1359,37 @@ export default function CortePage() {
       return { ...s, status: 'finalizado', producaoFim: fim, pausas }
     })
     toast('success', 'Programa finalizado', 'Tempo total calculado com sucesso.')
+  }
+
+  function abrirConfirmacaoModal(id: string) {
+    setConfirmacaoModal({ open: true, sessionId: id })
+  }
+
+  function confirmarProducao(realQtys: Record<string, number>) {
+    if (!confirmacaoModal.sessionId) return
+    const id = confirmacaoModal.sessionId
+    const sess = sessions.find((s) => s.id === id)
+    if (!sess) return
+
+    adicionarTarefas(
+      sess.ordens.map((o) => ({
+        codigoPeca: o.codigoPeca,
+        descricao: o.peca,
+        quantidade: realQtys[o.codigoPeca] ?? o.quantidade,
+        quantidadePlanejada: o.quantidade,
+        programaOrigem: sess.codigo,
+        programaOrigemId: sess.id,
+        osVinculadas: [o.numero],
+        prioridade: sess.prioridade,
+        material: o.material,
+        espessura: o.espessura,
+        liberadoEm: new Date(),
+      }))
+    )
+    toast('info', 'Dobra notificada', `${sess.ordens.length} tarefa(s) adicionada(s) à fila de dobra.`)
+
+    setConfirmacaoModal({ open: false, sessionId: null })
+    finalizar(id)
   }
 
   // KPI calculations
@@ -1230,6 +1413,7 @@ export default function CortePage() {
   ]
 
   return (
+    <PermissionGate module="corte">
     <div>
       <PageHeader
         title="Corte"
@@ -1388,7 +1572,7 @@ export default function CortePage() {
                     onIniciarProducao={iniciarProducao}
                     onPausar={abrirPausaModal}
                     onRetomar={retomar}
-                    onFinalizar={finalizar}
+                    onFinalizar={abrirConfirmacaoModal}
                   />
                 ))}
               </div>
@@ -1435,6 +1619,15 @@ export default function CortePage() {
         onClose={() => setPauseModal({ open: false, sessionId: null })}
         onConfirm={confirmarPausa}
       />
+
+      {/* Confirmação de produção / estoque modal */}
+      <ConfirmacaoProducaoModal
+        open={confirmacaoModal.open}
+        session={sessions.find((s) => s.id === confirmacaoModal.sessionId) ?? null}
+        onClose={() => setConfirmacaoModal({ open: false, sessionId: null })}
+        onConfirm={confirmarProducao}
+      />
     </div>
+    </PermissionGate>
   )
 }

@@ -6,6 +6,7 @@ export type ModuleId =
   | 'pecas'
   | 'retalhos'
   | 'programas'
+  | 'estoque'
   | 'relatorios'
   | 'usuarios'
   | 'configuracoes'
@@ -34,6 +35,7 @@ export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'pecas',        label: 'Peças'         },
   { id: 'retalhos',     label: 'Retalhos'      },
   { id: 'programas',    label: 'Programas'     },
+  { id: 'estoque',      label: 'Estoque'       },
   { id: 'relatorios',   label: 'Relatórios'    },
   { id: 'usuarios',     label: 'Usuários'      },
   { id: 'configuracoes',label: 'Configurações' },

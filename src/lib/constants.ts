@@ -14,6 +14,11 @@ export const NAV_ITEMS = [
     icon: 'Scissors',
   },
   {
+    label: 'Dobra',
+    href: '/dobra',
+    icon: 'FoldVertical',
+  },
+  {
     label: 'Peças',
     href: '/pecas',
     icon: 'Package',
@@ -29,6 +34,11 @@ export const NAV_ITEMS = [
     href: '/programas',
     icon: 'Code2',
     badge: 1,
+  },
+  {
+    label: 'Estoque',
+    href: '/estoque',
+    icon: 'Warehouse',
   },
   {
     label: 'Relatórios',

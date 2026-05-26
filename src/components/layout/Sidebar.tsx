@@ -13,6 +13,8 @@ import {
   Users,
   Settings,
   Scissors,
+  FoldVertical,
+  Warehouse,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -34,14 +36,18 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   Users,
   Settings,
   Scissors,
+  FoldVertical,
+  Warehouse,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
   '/dashboard':    'dashboard',
   '/corte':        'corte',
+  '/dobra':        'dobra',
   '/pecas':        'pecas',
   '/retalhos':     'retalhos',
   '/programas':    'programas',
+  '/estoque':      'estoque',
   '/relatorios':   'relatorios',
   '/usuarios':     'usuarios',
   '/configuracoes':'configuracoes',
