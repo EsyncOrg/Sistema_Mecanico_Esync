@@ -16,7 +16,9 @@ import {
   FoldVertical,
   Warehouse,
   Lightbulb,
+  Workflow,
   Boxes,
+  Brain,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -41,12 +43,15 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   FoldVertical,
   Warehouse,
   Lightbulb,
+  Workflow,
   Boxes,
+  Brain,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
   '/dashboard':      'dashboard',
   '/desenvolvimento':'desenvolvimento',
+  '/programacao':    'programacao',
   '/conjuntos':      'conjuntos',
   '/corte':          'corte',
   '/dobra':          'dobra',
@@ -55,9 +60,14 @@ const hrefToModule: Record<string, ModuleId> = {
   '/programas':      'programas',
   '/estoque':        'estoque',
   '/relatorios':     'relatorios',
+  '/esync-ia':       'esync_ia',
   '/usuarios':       'usuarios',
   '/configuracoes':  'configuracoes',
 }
+
+const GOLD_IA = '#d4af37'
+const GOLD_IA_LIGHT = 'rgba(212,175,55,0.15)'
+const GOLD_IA_MEDIUM = 'rgba(212,175,55,0.28)'
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -75,10 +85,17 @@ interface NavItemProps {
   isCollapsed: boolean
   isActive: boolean
   isLocked: boolean
+  isPremium?: boolean
 }
 
-function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
+function NavItem({ item, isCollapsed, isActive, isLocked, isPremium }: NavItemProps) {
   const Icon = iconMap[item.icon]
+
+  const premiumActiveStyle = isPremium && isActive
+    ? { background: GOLD_IA_LIGHT, border: `1px solid ${GOLD_IA_MEDIUM}` }
+    : isPremium
+    ? { border: `1px solid ${GOLD_IA_MEDIUM}` }
+    : {}
 
   const inner = (
     <Link href={item.href} tabIndex={-1}>
@@ -89,14 +106,17 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
           isLocked && 'opacity-45'
         )}
         style={{
-          background: isActive ? 'var(--sidebar-item-active-bg)' : undefined,
+          background: isActive && !isPremium ? 'var(--sidebar-item-active-bg)' : undefined,
           color: isActive
-            ? 'var(--sidebar-item-text-active)'
+            ? isPremium ? GOLD_IA : 'var(--sidebar-item-text-active)'
             : 'var(--sidebar-item-text)',
+          ...premiumActiveStyle,
         }}
         onMouseEnter={(e) => {
           if (!isActive) {
-            (e.currentTarget as HTMLElement).style.background = 'var(--sidebar-item-hover-bg)'
+            (e.currentTarget as HTMLElement).style.background = isPremium
+              ? GOLD_IA_LIGHT
+              : 'var(--sidebar-item-hover-bg)'
           }
         }}
         onMouseLeave={(e) => {
@@ -113,7 +133,7 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
           <motion.div
             layoutId="sidebar-active"
             className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-full"
-            style={{ background: 'var(--sidebar-indicator)' }}
+            style={{ background: isPremium ? GOLD_IA : 'var(--sidebar-indicator)' }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           />
         )}
@@ -121,7 +141,13 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
         {/* Icon */}
         <span
           className="flex-shrink-0 transition-colors"
-          style={{ color: isActive ? 'var(--sidebar-indicator)' : 'var(--sidebar-item-text)' }}
+          style={{
+            color: isPremium
+              ? GOLD_IA
+              : isActive
+              ? 'var(--sidebar-indicator)'
+              : 'var(--sidebar-item-text)',
+          }}
         >
           {Icon && <Icon size={17} />}
         </span>
@@ -135,14 +161,24 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.18 }}
               className="text-sm font-medium whitespace-nowrap overflow-hidden leading-none flex-1"
+              style={isPremium ? { color: GOLD_IA } : undefined}
             >
               {item.label}
             </motion.span>
           )}
         </AnimatePresence>
 
-        {/* Badge or Lock */}
+        {/* Premium pulse dot / Badge / Lock */}
         <AnimatePresence>
+          {isPremium && !isCollapsed && !isLocked && (
+            <motion.span
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              className="ml-auto flex h-2 w-2 rounded-full"
+              style={{ background: GOLD_IA, boxShadow: `0 0 5px ${GOLD_IA}` }}
+            />
+          )}
           {isLocked && !isCollapsed && (
             <motion.span
               initial={{ scale: 0, opacity: 0 }}
@@ -152,7 +188,7 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
               <Lock size={10} style={{ color: 'var(--sidebar-subtext)' }} />
             </motion.span>
           )}
-          {item.badge && !isCollapsed && !isLocked && (
+          {item.badge && !isCollapsed && !isLocked && !isPremium && (
             <motion.span
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -165,8 +201,15 @@ function NavItem({ item, isCollapsed, isActive, isLocked }: NavItemProps) {
           )}
         </AnimatePresence>
 
+        {/* Collapsed premium dot */}
+        {isPremium && isCollapsed && !isLocked && (
+          <span
+            className="absolute top-1.5 right-2 h-2 w-2 rounded-full"
+            style={{ background: GOLD_IA }}
+          />
+        )}
         {/* Collapsed badge dot */}
-        {item.badge && isCollapsed && !isLocked && (
+        {item.badge && isCollapsed && !isLocked && !isPremium && (
           <span
             className="absolute top-1.5 right-2 h-2 w-2 rounded-full"
             style={{ background: 'var(--sidebar-badge-bg)' }}
@@ -302,6 +345,7 @@ export function Sidebar() {
                       : pathname.startsWith(item.href)
                   }
                   isLocked={locked}
+                  isPremium={item.href === '/esync-ia'}
                 />
               )
             })}

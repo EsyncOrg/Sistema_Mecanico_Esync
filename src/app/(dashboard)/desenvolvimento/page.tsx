@@ -59,6 +59,7 @@ import { PauseModal } from '@/components/shared/PauseModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDesenvolvimento } from '@/contexts/DesenvolvimentoContext'
 import { useConjuntos } from '@/contexts/ConjuntosContext'
+import { useProgramacao } from '@/contexts/ProgramacaoContext'
 import type { Conjunto } from '@/types/conjuntos'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -728,6 +729,7 @@ export default function DesenvolvimentoPage() {
     criarSolicitacao,
   } = useDesenvolvimento()
   const { conjuntos: registeredConjuntos } = useConjuntos()
+  const { adicionarDeDesenvolvimento } = useProgramacao()
 
   const [now, setNow] = useState(Date.now())
   const [activeTab, setActiveTab] = useState<TabView>('dashboard')
@@ -948,14 +950,24 @@ export default function DesenvolvimentoPage() {
       pecas: solPecas,
       conjuntos: [],
     })
+    // Send to Programação module
+    adicionarDeDesenvolvimento({
+      titulo:      solForm.titulo,
+      cliente:     solForm.cliente,
+      numeroOS:    solForm.numeroOS,
+      prioridade:  solForm.prioridade,
+      observacoes: solForm.observacoes,
+      responsavel: solForm.responsavel || 'João Dias',
+      pecas:       solPecas,
+    })
     // Reset
     setSolStep(1)
     setSolForm({ titulo: '', cliente: '', numeroOS: '', descricao: '', prioridade: 'media', observacoes: '', responsavel: '' })
     setSolPecas([])
     setExpandedPecas(new Set())
     setActiveTab('historico')
-    toast('success', 'Solicitação criada com sucesso!')
-  }, [solForm, solPecas, criarSolicitacao])
+    toast('success', 'Solicitação criada e enviada para Programação!')
+  }, [solForm, solPecas, criarSolicitacao, adicionarDeDesenvolvimento])
 
   const allSolProcessos = useMemo((): SetorProcesso[] => {
     const set = new Set<SetorProcesso>()

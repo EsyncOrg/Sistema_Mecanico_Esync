@@ -14,6 +14,11 @@ export const NAV_ITEMS = [
     icon: 'Lightbulb',
   },
   {
+    label: 'Programação',
+    href: '/programacao',
+    icon: 'Workflow',
+  },
+  {
     label: 'Conjuntos',
     href: '/conjuntos',
     icon: 'Boxes',
@@ -54,6 +59,11 @@ export const NAV_ITEMS = [
     label: 'Relatórios',
     href: '/relatorios',
     icon: 'BarChart3',
+  },
+  {
+    label: 'Esync IA',
+    href: '/esync-ia',
+    icon: 'Brain',
   },
   {
     label: 'Usuários',

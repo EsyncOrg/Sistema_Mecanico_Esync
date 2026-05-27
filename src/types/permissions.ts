@@ -1,6 +1,7 @@
 export type ModuleId =
   | 'dashboard'
   | 'desenvolvimento'
+  | 'programacao'
   | 'conjuntos'
   | 'corte'
   | 'dobra'
@@ -10,6 +11,7 @@ export type ModuleId =
   | 'programas'
   | 'estoque'
   | 'relatorios'
+  | 'esync_ia'
   | 'usuarios'
   | 'configuracoes'
 
@@ -32,6 +34,7 @@ export interface Cargo {
 export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'dashboard',     label: 'Dashboard'      },
   { id: 'desenvolvimento',label: 'Desenvolvimento' },
+  { id: 'programacao',   label: 'Programação'    },
   { id: 'conjuntos',     label: 'Conjuntos'      },
   { id: 'corte',         label: 'Corte'          },
   { id: 'dobra',         label: 'Dobra'          },
@@ -41,6 +44,7 @@ export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'programas',     label: 'Programas'      },
   { id: 'estoque',       label: 'Estoque'        },
   { id: 'relatorios',    label: 'Relatórios'     },
+  { id: 'esync_ia',      label: 'Esync IA'       },
   { id: 'usuarios',      label: 'Usuários'       },
   { id: 'configuracoes', label: 'Configurações'  },
 ]

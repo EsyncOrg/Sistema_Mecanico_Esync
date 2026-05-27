@@ -20,6 +20,7 @@ export const mockCargos: Cargo[] = [
     permissoes: buildMap({
       dashboard:      full(),
       desenvolvimento:full(),
+      programacao:    full(),
       conjuntos:      full(),
       corte:          full(),
       dobra:          full(),
@@ -29,6 +30,7 @@ export const mockCargos: Cargo[] = [
       programas:      full(),
       estoque:        full(),
       relatorios:     full(),
+      esync_ia:       full(),
       usuarios:       full(),
       configuracoes:  full(),
     } as Partial<Record<ModuleId, ModulePermission>>),
@@ -41,6 +43,7 @@ export const mockCargos: Cargo[] = [
     permissoes: buildMap({
       dashboard:      view(),
       desenvolvimento:view(),
+      programacao:    view(),
       conjuntos:      view(),
       corte:          full(),
       dobra:          view(),
@@ -55,6 +58,7 @@ export const mockCargos: Cargo[] = [
     permissoes: buildMap({
       dashboard:      view(),
       desenvolvimento:view(),
+      programacao:    full(),
       conjuntos:      full(),
       pecas:          view(),
       programas:      full(),
@@ -72,6 +76,7 @@ export const mockCargos: Cargo[] = [
     permissoes: buildMap({
       dashboard:      view(),
       desenvolvimento:full(),
+      programacao:    full(),
       conjuntos:      full(),
       pecas:          full(),
       retalhos:       view(),
@@ -89,6 +94,7 @@ export const mockCargos: Cargo[] = [
     permissoes: buildMap({
       dashboard:      view(),
       desenvolvimento:view(),
+      programacao:    view(),
       conjuntos:      view(),
       corte:          full(),
       dobra:          full(),
