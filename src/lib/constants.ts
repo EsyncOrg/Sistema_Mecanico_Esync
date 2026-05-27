@@ -9,6 +9,16 @@ export const NAV_ITEMS = [
     icon: 'LayoutDashboard',
   },
   {
+    label: 'Desenvolvimento',
+    href: '/desenvolvimento',
+    icon: 'Lightbulb',
+  },
+  {
+    label: 'Conjuntos',
+    href: '/conjuntos',
+    icon: 'Boxes',
+  },
+  {
     label: 'Corte',
     href: '/corte',
     icon: 'Scissors',

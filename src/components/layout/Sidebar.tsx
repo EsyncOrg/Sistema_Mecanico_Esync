@@ -15,6 +15,8 @@ import {
   Scissors,
   FoldVertical,
   Warehouse,
+  Lightbulb,
+  Boxes,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -38,19 +40,23 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   Scissors,
   FoldVertical,
   Warehouse,
+  Lightbulb,
+  Boxes,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
-  '/dashboard':    'dashboard',
-  '/corte':        'corte',
-  '/dobra':        'dobra',
-  '/pecas':        'pecas',
-  '/retalhos':     'retalhos',
-  '/programas':    'programas',
-  '/estoque':      'estoque',
-  '/relatorios':   'relatorios',
-  '/usuarios':     'usuarios',
-  '/configuracoes':'configuracoes',
+  '/dashboard':      'dashboard',
+  '/desenvolvimento':'desenvolvimento',
+  '/conjuntos':      'conjuntos',
+  '/corte':          'corte',
+  '/dobra':          'dobra',
+  '/pecas':          'pecas',
+  '/retalhos':       'retalhos',
+  '/programas':      'programas',
+  '/estoque':        'estoque',
+  '/relatorios':     'relatorios',
+  '/usuarios':       'usuarios',
+  '/configuracoes':  'configuracoes',
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────

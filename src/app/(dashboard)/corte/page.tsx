@@ -36,6 +36,7 @@ import {
 } from 'recharts'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PermissionGate } from '@/components/shared/PermissionGate'
+import { PauseModal } from '@/components/shared/PauseModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -437,94 +438,7 @@ function OSDistributionBar({ ordens, producaoSecs }: { ordens: OrdemServico[]; p
   )
 }
 
-function PauseModal({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean
-  onClose: () => void
-  onConfirm: (motivo: string) => void
-}) {
-  const [motivo, setMotivo] = useState(MOTIVOS[0])
-  const [outro, setOutro] = useState('')
 
-  function handleConfirm() {
-    const finalMotivo = motivo === 'Outro' ? (outro.trim() || 'Outro') : motivo
-    onConfirm(finalMotivo)
-    setMotivo(MOTIVOS[0])
-    setOutro('')
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent size="sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Pause size={15} className="text-destructive" />
-            Pausar Produção
-          </DialogTitle>
-        </DialogHeader>
-        <DialogBody className="space-y-4 pb-2">
-          <p className="text-sm text-muted-foreground">
-            Selecione o motivo da pausa. O tempo será registrado para análise de produtividade.
-          </p>
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider">Motivo da Pausa</Label>
-            <div className="grid gap-2">
-              {MOTIVOS.map((m) => (
-                <label
-                  key={m}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors',
-                    motivo === m
-                      ? 'border-accent bg-accent/5 text-foreground'
-                      : 'border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground'
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="motivo"
-                    value={m}
-                    checked={motivo === m}
-                    onChange={() => setMotivo(m)}
-                    className="accent-accent"
-                  />
-                  {m}
-                </label>
-              ))}
-            </div>
-            {motivo === 'Outro' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-              >
-                <input
-                  type="text"
-                  placeholder="Descreva o motivo..."
-                  value={outro}
-                  onChange={(e) => setOutro(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                />
-              </motion.div>
-            )}
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button
-            size="sm"
-            className="bg-destructive text-white hover:bg-destructive/90"
-            onClick={handleConfirm}
-          >
-            <Pause size={13} />
-            Confirmar Pausa
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 function ConfirmacaoProducaoModal({
   open,
@@ -566,7 +480,7 @@ function ConfirmacaoProducaoModal({
             Confirmar Finalização — {session?.nome}
           </DialogTitle>
         </DialogHeader>
-        <DialogBody className="space-y-5 pb-2">
+        <DialogBody className="space-y-5">
           <p className="text-sm text-muted-foreground">
             Informe as quantidades reais produzidas. Peças destinadas ao estoque (OS:1508) serão lançadas automaticamente no inventário.
           </p>
@@ -601,7 +515,7 @@ function ConfirmacaoProducaoModal({
                       onChange={(e) =>
                         setQtys((prev) => ({ ...prev, [os.codigoPeca]: parseInt(e.target.value) || 0 }))
                       }
-                      className="h-7 w-24 text-sm"
+                      className="h-7 w-full max-w-[96px] text-sm"
                     />
                   </div>
                 </div>
@@ -1618,6 +1532,9 @@ export default function CortePage() {
         open={pauseModal.open}
         onClose={() => setPauseModal({ open: false, sessionId: null })}
         onConfirm={confirmarPausa}
+        title="Pausar Produção"
+        motivos={MOTIVOS}
+        radioName="motivo-corte"
       />
 
       {/* Confirmação de produção / estoque modal */}

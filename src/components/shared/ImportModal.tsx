@@ -701,7 +701,7 @@ export function ImportModal({
                         {errors.length} linhas com erros foram ignoradas
                       </p>
                     </div>
-                    <div className="overflow-hidden rounded-xl border border-destructive/20">
+                    <div className="overflow-x-auto rounded-xl border border-destructive/20">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-border bg-destructive/5">

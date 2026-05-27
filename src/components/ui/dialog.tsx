@@ -46,8 +46,12 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
+          // Positioning & sizing — never exceed 90 % of the viewport height
           'fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2',
+          'flex flex-col max-h-[90vh] overflow-hidden',
+          // Visual
           'rounded-2xl border border-border bg-card shadow-xl',
+          // Animations
           'data-[state=open]:animate-in data-[state=closed]:animate-out',
           'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -70,18 +74,37 @@ const DialogContent = React.forwardRef<
 })
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+/** Pinned to the top of the dialog — never scrolls away. */
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col gap-1 px-6 pb-3 pt-5', className)} {...props} />
+  return (
+    <div
+      className={cn('flex flex-shrink-0 flex-col gap-1 px-4 pb-3 pt-4 sm:px-6 sm:pt-5', className)}
+      {...props}
+    />
+  )
 }
 
+/** Scrollable body — grows to fill available height then enables vertical scroll. */
 function DialogBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-6', className)} {...props} />
+  return (
+    <div
+      className={cn('flex-1 overflow-y-auto min-h-0 px-4 pb-4 sm:px-6', className)}
+      {...props}
+    />
+  )
 }
 
+/** Pinned to the bottom — always visible regardless of body scroll position. */
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex items-center justify-end gap-3 border-t border-border px-6 py-4 mt-4', className)}
+      className={cn(
+        // Stack buttons vertically on mobile, horizontal on sm+
+        'flex flex-shrink-0 flex-col-reverse gap-2',
+        'border-t border-border bg-card px-4 py-3',
+        'sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-4',
+        className
+      )}
       {...props}
     />
   )

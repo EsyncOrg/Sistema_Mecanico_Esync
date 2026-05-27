@@ -42,6 +42,7 @@ import { PermissionGate } from '@/components/shared/PermissionGate'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDobra } from '@/contexts/DobraContext'
 import { useEstoque } from '@/contexts/EstoqueContext'
+import { PauseModal } from '@/components/shared/PauseModal'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -194,84 +195,6 @@ function TimerBlock({ label, secs, accent = false, large = false }: {
   )
 }
 
-function PauseModal({
-  open, onClose, onConfirm,
-}: {
-  open: boolean; onClose: () => void; onConfirm: (motivo: string) => void
-}) {
-  const [motivo, setMotivo] = useState(MOTIVOS[0])
-  const [outro, setOutro] = useState('')
-
-  function handleConfirm() {
-    const final = motivo === 'Outro' ? (outro.trim() || 'Outro') : motivo
-    onConfirm(final)
-    setMotivo(MOTIVOS[0])
-    setOutro('')
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent size="sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Pause size={15} className="text-destructive" />
-            Pausar Dobra
-          </DialogTitle>
-        </DialogHeader>
-        <DialogBody className="space-y-4 pb-2">
-          <p className="text-sm text-muted-foreground">
-            Selecione o motivo da pausa. O tempo será registrado para análise de produtividade.
-          </p>
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider">Motivo</Label>
-            <div className="grid gap-2">
-              {MOTIVOS.map((m) => (
-                <label
-                  key={m}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors',
-                    motivo === m
-                      ? 'border-accent bg-accent/5 text-foreground'
-                      : 'border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground'
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="motivo-dobra"
-                    value={m}
-                    checked={motivo === m}
-                    onChange={() => setMotivo(m)}
-                    className="accent-accent"
-                  />
-                  {m}
-                </label>
-              ))}
-            </div>
-            {motivo === 'Outro' && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                <input
-                  type="text"
-                  placeholder="Descreva o motivo..."
-                  value={outro}
-                  onChange={(e) => setOutro(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                />
-              </motion.div>
-            )}
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" className="bg-destructive text-white hover:bg-destructive/90" onClick={handleConfirm}>
-            <Pause size={13} />
-            Confirmar Pausa
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 function ConfirmacaoDobraModal({
   open, tarefa, onClose, onConfirm,
 }: {
@@ -286,6 +209,9 @@ function ConfirmacaoDobraModal({
   useEffect(() => {
     if (open && tarefa) {
       setQtdReal(String(tarefa.quantidade))
+      setQualidade(false)
+    } else if (!open) {
+      setQtdReal('')
       setQualidade(false)
     }
   }, [open, tarefa])
@@ -311,7 +237,7 @@ function ConfirmacaoDobraModal({
             Confirmar Produção — Dobra
           </DialogTitle>
         </DialogHeader>
-        <DialogBody className="space-y-5 pb-2">
+        <DialogBody className="space-y-5">
           {/* Part info */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -1805,6 +1731,9 @@ export default function DobraPage() {
         open={pauseModal.open}
         onClose={() => setPauseModal({ open: false, tarefaId: null })}
         onConfirm={confirmarPausa}
+        title="Pausar Dobra"
+        motivos={MOTIVOS}
+        radioName="motivo-dobra"
       />
 
       {/* Finalization modal */}

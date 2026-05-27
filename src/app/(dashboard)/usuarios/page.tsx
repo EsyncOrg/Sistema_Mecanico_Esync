@@ -201,7 +201,7 @@ function NovoCargo({
             {editing ? 'Editar Cargo' : 'Novo Cargo'}
           </DialogTitle>
         </DialogHeader>
-        <DialogBody className="space-y-5 pb-2 max-h-[70vh] overflow-y-auto">
+        <DialogBody className="space-y-5">
           {/* Basic info */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

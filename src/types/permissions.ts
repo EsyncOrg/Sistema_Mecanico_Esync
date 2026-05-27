@@ -1,5 +1,7 @@
 export type ModuleId =
   | 'dashboard'
+  | 'desenvolvimento'
+  | 'conjuntos'
   | 'corte'
   | 'dobra'
   | 'solda'
@@ -28,17 +30,19 @@ export interface Cargo {
 }
 
 export const ALL_MODULES: { id: ModuleId; label: string }[] = [
-  { id: 'dashboard',    label: 'Dashboard'     },
-  { id: 'corte',        label: 'Corte'         },
-  { id: 'dobra',        label: 'Dobra'         },
-  { id: 'solda',        label: 'Solda'         },
-  { id: 'pecas',        label: 'Peças'         },
-  { id: 'retalhos',     label: 'Retalhos'      },
-  { id: 'programas',    label: 'Programas'     },
-  { id: 'estoque',      label: 'Estoque'       },
-  { id: 'relatorios',   label: 'Relatórios'    },
-  { id: 'usuarios',     label: 'Usuários'      },
-  { id: 'configuracoes',label: 'Configurações' },
+  { id: 'dashboard',     label: 'Dashboard'      },
+  { id: 'desenvolvimento',label: 'Desenvolvimento' },
+  { id: 'conjuntos',     label: 'Conjuntos'      },
+  { id: 'corte',         label: 'Corte'          },
+  { id: 'dobra',         label: 'Dobra'          },
+  { id: 'solda',         label: 'Solda'          },
+  { id: 'pecas',         label: 'Peças'          },
+  { id: 'retalhos',      label: 'Retalhos'       },
+  { id: 'programas',     label: 'Programas'      },
+  { id: 'estoque',       label: 'Estoque'        },
+  { id: 'relatorios',    label: 'Relatórios'     },
+  { id: 'usuarios',      label: 'Usuários'       },
+  { id: 'configuracoes', label: 'Configurações'  },
 ]
 
 export const CARGO_PRESET_COLORS = [
