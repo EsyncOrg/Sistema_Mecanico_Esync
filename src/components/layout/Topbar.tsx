@@ -53,7 +53,7 @@ export function Topbar({ title }: TopbarProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const { theme, setTheme } = useTheme()
-  const { currentCargo, setCurrentCargoId } = useAuth()
+  const { currentCargo, setCurrentCargoId, logout } = useAuth()
 
   const unreadCount = mockNotificacoes.filter((n) => !n.lida).length
 
@@ -258,7 +258,10 @@ export function Topbar({ title }: TopbarProps) {
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+            <DropdownMenuItem
+              onClick={logout}
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
               <LogOut size={14} />
               Sair
             </DropdownMenuItem>

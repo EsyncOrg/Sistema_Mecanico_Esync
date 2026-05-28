@@ -699,7 +699,7 @@ export default function ConjuntosPage() {
     setFormPecas([])
     setNovaPeca({ codigo: '', descricao: '', quantidade: 1, material: 'Aço Carbono 1020', espessura: 3.0, pesoEstimado: 1.0, observacoes: '', processos: [] })
     setShowForm(false)
-    toast('success', 'Conjunto criado com sucesso!')
+    toast('success', 'Produto criado com sucesso!')
   }, [conjForm, formPecas, criarConjunto])
 
   const handleVerEstrutura = useCallback((c: Conjunto) => {
@@ -715,7 +715,7 @@ export default function ConjuntosPage() {
 
   const handleExcluir = useCallback((id: string) => {
     excluirConjunto(id)
-    toast('warning', 'Conjunto removido')
+    toast('warning', 'Produto removido')
   }, [excluirConjunto])
 
   const handleExecutarSimulacao = useCallback(() => {
@@ -737,9 +737,9 @@ export default function ConjuntosPage() {
     <div className="space-y-6">
 
       <PageHeader
-        title="Conjuntos"
+        title="Produtos"
         subtitle="Montagens industriais e simulação de produção"
-        breadcrumbs={[{ label: 'Início', href: '/dashboard' }, { label: 'Conjuntos' }]}
+        breadcrumbs={[{ label: 'Início', href: '/dashboard' }, { label: 'Produtos' }]}
         actions={
           canEdit('conjuntos') ? (
             <Button
@@ -748,7 +748,7 @@ export default function ConjuntosPage() {
               onClick={() => { setShowForm(true); setActiveTab('cadastro') }}
             >
               <Plus size={14} />
-              Novo Conjunto
+              Novo Produto
             </Button>
           ) : undefined
         }
@@ -784,8 +784,8 @@ export default function ConjuntosPage() {
               {/* KPI Cards */}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 {[
-                  { label: 'Total de conjuntos',     value: dashKpis.total,                icon: Boxes,       bg: 'bg-primary/10',     color: 'text-primary',     ring: 'ring-primary/20'     },
-                  { label: 'Conjuntos ativos',        value: dashKpis.ativos,               icon: CheckCircle2,bg: 'bg-success/10',     color: 'text-success',     ring: 'ring-success/20'     },
+                  { label: 'Total de produtos',       value: dashKpis.total,                icon: Boxes,       bg: 'bg-primary/10',     color: 'text-primary',     ring: 'ring-primary/20'     },
+                  { label: 'Produtos ativos',         value: dashKpis.ativos,               icon: CheckCircle2,bg: 'bg-success/10',     color: 'text-success',     ring: 'ring-success/20'     },
                   { label: 'Tipos de peças vinculadas',value: dashKpis.totalPecas,           icon: Package,     bg: 'bg-accent/10',      color: 'text-accent',      ring: 'ring-accent/20'      },
                   { label: 'Mais produzido',          value: dashKpis.maisUsado?.codigo ?? '—', icon: Star,    bg: 'bg-warning/10',     color: 'text-warning',     ring: 'ring-warning/20'     },
                   { label: 'Unidades econ. via estoque',value: dashKpis.economiaTotalUnidades, icon: TrendingUp,bg: 'bg-success/10',  color: 'text-success',     ring: 'ring-success/20'     },
@@ -810,7 +810,7 @@ export default function ConjuntosPage() {
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold">Uso por Conjunto</CardTitle>
+                    <CardTitle className="text-sm font-semibold">Uso por Produto</CardTitle>
                     <CardDescription className="text-xs">Quantidade de vezes produzido</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -908,7 +908,7 @@ export default function ConjuntosPage() {
               {/* Conjuntos quick list */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Conjuntos Cadastrados</CardTitle>
+                  <CardTitle className="text-sm font-semibold">Produtos Cadastrados</CardTitle>
                   <CardDescription className="text-xs">Visão geral rápida</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -954,7 +954,7 @@ export default function ConjuntosPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
-                    {conjuntos.length} conjunto{conjuntos.length !== 1 ? 's' : ''} cadastrado{conjuntos.length !== 1 ? 's' : ''}
+                    {conjuntos.length} produto{conjuntos.length !== 1 ? 's' : ''} cadastrado{conjuntos.length !== 1 ? 's' : ''}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">Gerencie montagens industriais completas</p>
                 </div>
@@ -965,7 +965,7 @@ export default function ConjuntosPage() {
                     onClick={() => setShowForm((v) => !v)}
                   >
                     <Plus size={14} />
-                    {showForm ? 'Cancelar' : 'Novo Conjunto'}
+                    {showForm ? 'Cancelar' : 'Novo Produto'}
                   </Button>
                 )}
               </div>
@@ -985,7 +985,7 @@ export default function ConjuntosPage() {
                       <Card>
                         <CardHeader>
                           <CardTitle className="text-sm">Informações Gerais</CardTitle>
-                          <CardDescription className="text-xs">Identifique o conjunto industrial</CardDescription>
+                          <CardDescription className="text-xs">Identifique o produto industrial</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid gap-4 sm:grid-cols-2">
@@ -1084,7 +1084,7 @@ export default function ConjuntosPage() {
                       <Card>
                         <CardHeader>
                           <CardTitle className="text-sm">Estrutura de Peças</CardTitle>
-                          <CardDescription className="text-xs">Defina cada peça que compõe o conjunto</CardDescription>
+                          <CardDescription className="text-xs">Defina cada peça que compõe o produto</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid gap-4 sm:grid-cols-2">
@@ -1099,7 +1099,7 @@ export default function ConjuntosPage() {
                           </div>
                           <div className="grid gap-4 sm:grid-cols-4">
                             <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Qtd / Conj.</Label>
+                              <Label className="text-xs font-semibold uppercase tracking-wider">Qtd / Prod.</Label>
                               <Input type="number" min={1} value={novaPeca.quantidade} onChange={(e) => setNovaPeca((f) => ({ ...f, quantidade: parseInt(e.target.value) || 1 }))} />
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
@@ -1143,7 +1143,7 @@ export default function ConjuntosPage() {
                           </div>
                           <Button variant="outline" className="w-full gap-1.5" onClick={handleAddPeca}>
                             <Plus size={14} />
-                            Adicionar Peça ao Conjunto
+                            Adicionar Peça ao Produto
                           </Button>
                         </CardContent>
                       </Card>
@@ -1224,7 +1224,7 @@ export default function ConjuntosPage() {
                         </Button>
                         <Button className="gap-1.5 bg-success hover:bg-success/90 text-white" onClick={handleSubmitConjunto}>
                           <CheckCircle2 size={14} />
-                          Criar Conjunto
+                          Criar Produto
                         </Button>
                       </div>
                     </div>
@@ -1250,10 +1250,10 @@ export default function ConjuntosPage() {
               ) : (
                 <div className="rounded-xl border border-dashed border-border bg-muted/30 p-16 text-center">
                   <Boxes size={36} className="mx-auto text-muted-foreground/40 mb-4" />
-                  <p className="text-sm font-medium text-muted-foreground">Nenhum conjunto cadastrado</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1 mb-4">Crie seu primeiro conjunto industrial</p>
+                  <p className="text-sm font-medium text-muted-foreground">Nenhum produto cadastrado</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1 mb-4">Crie seu primeiro produto industrial</p>
                   <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}>
-                    <Plus size={13} /> Criar Conjunto
+                    <Plus size={13} /> Criar Produto
                   </Button>
                 </div>
               )}
@@ -1271,7 +1271,7 @@ export default function ConjuntosPage() {
                 <div className="flex items-center gap-3 flex-1">
                   <TreePine size={16} className="text-primary flex-shrink-0" />
                   <div className="space-y-1 flex-1">
-                    <Label className="text-xs font-semibold uppercase tracking-wider">Conjunto</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider">Produto</Label>
                     <select
                       className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-accent"
                       value={selectedConjuntoId}
@@ -1341,7 +1341,7 @@ export default function ConjuntosPage() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Fluxo de Produção</CardTitle>
-                      <CardDescription className="text-xs">Setores envolvidos neste conjunto</CardDescription>
+                      <CardDescription className="text-xs">Setores envolvidos neste produto</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
@@ -1407,7 +1407,7 @@ export default function ConjuntosPage() {
                 <CardContent>
                   <div className="flex flex-col sm:flex-row gap-4 items-end">
                     <div className="flex-1 space-y-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider">Conjunto</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wider">Produto</Label>
                       <select
                         className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-accent"
                         value={simConjuntoId}
@@ -1453,7 +1453,7 @@ export default function ConjuntosPage() {
                         <span className="text-xs text-muted-foreground">{simConjunto.pecas.length} tipos de peça</span>
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-foreground font-medium">
-                          {simConjunto.pecas.reduce((s, p) => s + p.quantidade, 0)} unidades por conjunto →
+                          {simConjunto.pecas.reduce((s, p) => s + p.quantidade, 0)} unidades por produto →
                           {' '}<strong>{simConjunto.pecas.reduce((s, p) => s + p.quantidade, 0) * simQtd}</strong> unidades totais
                         </span>
                       </div>
@@ -1471,7 +1471,7 @@ export default function ConjuntosPage() {
                   <FlaskConical size={36} className="mx-auto text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">Aguardando simulação</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    Configure o conjunto e a quantidade, depois clique em &ldquo;Executar Simulação&rdquo;
+                    Configure o produto e a quantidade, depois clique em &ldquo;Executar Simulação&rdquo;
                   </p>
                 </div>
               )}
@@ -1574,7 +1574,7 @@ export default function ConjuntosPage() {
                   { label: 'Produções registradas', value: historico.length, icon: History, bg: 'bg-primary/10', color: 'text-primary', ring: 'ring-primary/20' },
                   { label: 'Total produzido',        value: historico.reduce((s, h) => s + h.quantidadeProduzida, 0), icon: Boxes, bg: 'bg-accent/10', color: 'text-accent', ring: 'ring-accent/20' },
                   { label: 'Total econ. via estoque',value: historico.reduce((s, h) => s + h.quantidadeEconomizadaEstoque, 0), icon: TrendingUp, bg: 'bg-success/10', color: 'text-success', ring: 'ring-success/20' },
-                  { label: 'Conjuntos em revisão',   value: conjuntos.filter((c) => c.status === 'em_revisao').length, icon: AlertTriangle, bg: 'bg-warning/10', color: 'text-warning', ring: 'ring-warning/20' },
+                  { label: 'Produtos em revisão',    value: conjuntos.filter((c) => c.status === 'em_revisao').length, icon: AlertTriangle, bg: 'bg-warning/10', color: 'text-warning', ring: 'ring-warning/20' },
                 ].map((kpi, i) => (
                   <motion.div
                     key={i}
@@ -1596,7 +1596,7 @@ export default function ConjuntosPage() {
                 {/* Most used conjuntos */}
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold">Conjuntos Mais Produzidos</CardTitle>
+                    <CardTitle className="text-sm font-semibold">Produtos Mais Produzidos</CardTitle>
                     <CardDescription className="text-xs">Por quantidade de produções realizadas</CardDescription>
                   </CardHeader>
                   <CardContent>

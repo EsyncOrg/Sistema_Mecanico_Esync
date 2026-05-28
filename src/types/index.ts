@@ -23,29 +23,32 @@ export interface Usuario {
 
 // ─── Peças ───────────────────────────────────────────────────────────────────
 
+export interface Peca {
+  id: string
+  codigo: string
+  espessura: number
+  descricao: string
+  grupo: string
+  familia: string
+  codigoSistema: string
+  areaPeca: number        // mm²
+  desperdicio: number     // m²
+  percFabricacao: number  // numeric, display with %
+  percPintura: number     // numeric, display with %
+  peso: number            // kg
+  cor: string
+  arquivo3d: string       // path/url — future Autodesk Inventor integration
+  planoDobra: string      // path/url — future PDF/DWG integration
+  atualizadoEm: string    // ISO datetime, auto-updated on every edit
+}
+
+// Kept for other modules (estoque, etc.) that still use status
 export type StatusPeca =
   | 'disponivel'
   | 'reservado'
   | 'em_producao'
   | 'estoque_baixo'
   | 'indisponivel'
-
-export interface Peca {
-  id: string
-  codigo: string
-  nome: string
-  material: string
-  espessura: number
-  quantidade: number
-  quantidadeMinima: number
-  localizacao: string
-  status: StatusPeca
-  peso?: number
-  unidade: string
-  atualizadoEm: string
-  categoria: string
-  fornecedor?: string
-}
 
 // ─── Retalhos ────────────────────────────────────────────────────────────────
 
@@ -128,6 +131,83 @@ export interface NavItem {
   icon: string
   badge?: number
   children?: NavItem[]
+}
+
+// ─── Máquinas ────────────────────────────────────────────────────────────────
+
+export type StatusMaquina = 'operando' | 'setup' | 'pausada' | 'ociosa' | 'manutencao'
+
+export type SetorMaquina = 'corte' | 'dobra' | 'solda' | 'pintura' | 'desenvolvimento' | 'outros'
+
+export type TipoEventoMaquina =
+  | 'inicio_producao'
+  | 'fim_producao'
+  | 'inicio_setup'
+  | 'fim_setup'
+  | 'pausa'
+  | 'retomada'
+  | 'inicio_ociosidade'
+  | 'troca_operador'
+  | 'manutencao'
+  | 'falha_tecnica'
+
+export interface MaquinaTimelineSegmento {
+  tipo: StatusMaquina
+  inicio: number   // decimal hour from midnight (e.g. 6.5 = 06:30)
+  duracao: number  // hours
+  label?: string
+}
+
+export interface Maquina {
+  id: string
+  nome: string
+  codigo: string
+  setor: SetorMaquina
+  fabricante: string
+  modelo: string
+  ano: number
+  capacidade?: string
+  observacoes?: string
+  status: StatusMaquina
+  operadorAtual?: string
+  tarefaAtual?: string
+  osAtual?: string
+  eficiencia: number            // 0–100
+  tempoOperacionalHoje: number  // seconds
+  tempoSetupHoje: number        // seconds
+  tempoOciosoHoje: number       // seconds
+  tempoPausadoHoje: number      // seconds
+  totalHorasTrabalhadas: number // cumulative hours
+  producoesFinalizadas: number
+  ultimaAtividade: string       // ISO datetime
+  atualizadoEm: string          // ISO datetime
+  motivoPausa?: string
+  timeline: MaquinaTimelineSegmento[]
+  produtividadeSemanal: number[] // last 7 days operational hours
+}
+
+export interface EventoMaquina {
+  id: string
+  maquinaId: string
+  maquinaNome: string
+  maquinaCodigo: string
+  tipo: TipoEventoMaquina
+  descricao: string
+  operador: string
+  os?: string
+  duracao?: number     // seconds
+  observacoes?: string
+  timestamp: string    // ISO datetime
+}
+
+export interface OsTimeData {
+  numero: string
+  maquinaCodigo: string
+  totalSegundos: number
+  tempoSetupSeg: number
+  tempoProdSeg: number
+  eficiencia: number         // 0–100
+  participacaoPct: number    // filled in by compute helper
 }
 
 // ─── Relatório ───────────────────────────────────────────────────────────────

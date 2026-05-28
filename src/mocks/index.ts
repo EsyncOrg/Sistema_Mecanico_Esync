@@ -1,4 +1,5 @@
 export * from './dashboard'
+export * from './maquinas'
 export * from './pecas'
 export * from './retalhos'
 export * from './programas'

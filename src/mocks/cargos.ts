@@ -25,6 +25,7 @@ export const mockCargos: Cargo[] = [
       corte:          full(),
       dobra:          full(),
       solda:          full(),
+      maquinas:       full(),
       pecas:          full(),
       retalhos:       full(),
       programas:      full(),

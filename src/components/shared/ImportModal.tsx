@@ -32,6 +32,10 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
+import { parseFile } from '@/lib/import-export/parser'
+import { validateRows, buildAutoMapping } from '@/lib/import-export/validator'
+import { downloadTemplateXLSX, downloadTemplateCSV } from '@/lib/import-export/template'
+import { getAliasesForModule } from '@/lib/import-export/modules'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,7 @@ interface ImportModalProps {
   systemFields: SystemField[]
   mockFileColumns: string[]
   mockPreviewData: Record<string, string>[]
+  onImportComplete?: (validRows: Record<string, unknown>[]) => void
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,28 +73,28 @@ function formatBytes(bytes: number) {
 }
 
 const PROCESSING_STEPS = [
-  { key: 'reading', label: 'Lendo arquivo' },
-  { key: 'validating', label: 'Validando dados' },
-  { key: 'importing', label: 'Importando registros' },
-  { key: 'finalizing', label: 'Finalizando' },
+  { key: 'reading',    label: 'Lendo arquivo'       },
+  { key: 'validating', label: 'Validando dados'      },
+  { key: 'importing',  label: 'Importando registros' },
+  { key: 'finalizing', label: 'Finalizando'          },
 ]
 
 // ─── Stepper ──────────────────────────────────────────────────────────────────
 
 function Stepper({ current }: { current: Step }) {
   const steps: { key: Step; label: string }[] = [
-    { key: 'upload', label: 'Arquivo' },
-    { key: 'preview', label: 'Prévia' },
-    { key: 'mapping', label: 'Mapeamento' },
-    { key: 'processing', label: 'Processando' },
-    { key: 'done', label: 'Concluído' },
+    { key: 'upload',     label: 'Arquivo'    },
+    { key: 'preview',    label: 'Prévia'     },
+    { key: 'mapping',    label: 'Mapeamento' },
+    { key: 'processing', label: 'Processando'},
+    { key: 'done',       label: 'Concluído'  },
   ]
   const currentIdx = steps.findIndex((s) => s.key === current)
 
   return (
     <div className="flex items-center gap-0 mb-6">
       {steps.map((s, i) => {
-        const done = i < currentIdx
+        const done   = i < currentIdx
         const active = i === currentIdx
         return (
           <React.Fragment key={s.key}>
@@ -140,25 +145,49 @@ export function ImportModal({
   systemFields,
   mockFileColumns,
   mockPreviewData,
+  onImportComplete,
 }: ImportModalProps) {
-  const [step, setStep] = useState<Step>('upload')
-  const [file, setFile] = useState<File | null>(null)
-  const [mapping, setMapping] = useState<Record<string, string>>({})
-  const [progress, setProgress] = useState(0)
+  const [step, setStep]                 = useState<Step>('upload')
+  const [file, setFile]                 = useState<File | null>(null)
+  const [mapping, setMapping]           = useState<Record<string, string>>({})
+  const [progress, setProgress]         = useState(0)
   const [processingStep, setProcessingStep] = useState(0)
-  const [importCount, setImportCount] = useState(0)
-  const [errors, setErrors] = useState<ImportError[]>([])
-  const [showHistory, setShowHistory] = useState(false)
+  const [importCount, setImportCount]   = useState(0)
+  const [errors, setErrors]             = useState<ImportError[]>([])
+  const [showHistory, setShowHistory]   = useState(false)
+
+  // Real parsed data (populated after file drop)
+  const [realColumns, setRealColumns]         = useState<string[] | null>(null)
+  const [realPreviewRows, setRealPreviewRows] = useState<Record<string, string>[] | null>(null)
+  const [parsedRows, setParsedRows]           = useState<Record<string, string>[]>([])
+  const [totalParsedRows, setTotalParsedRows] = useState(0)
+
+  // Displayed data: real file data when available, mock props as fallback
+  const displayColumns  = realColumns      ?? mockFileColumns
+  const displayRows     = realPreviewRows  ?? mockPreviewData
+  const displayTotal    = totalParsedRows  || (mockPreviewData.length + 200)
 
   // Mocked import history
   const [history] = useState([
-    { id: 1, filename: `modelo-${moduleName}.xlsx`, registros: 186, erros: 2, data: '2026-05-24 14:32', status: 'success' },
-    { id: 2, filename: `backup-${moduleName}-maio.csv`, registros: 340, erros: 0, data: '2026-05-20 09:15', status: 'success' },
-    { id: 3, filename: `importacao-teste.xlsx`, registros: 0, erros: 8, data: '2026-05-18 16:44', status: 'error' },
+    { id: 1, filename: `modelo-${moduleName}.xlsx`,       registros: 186, erros: 2, data: '2026-05-24 14:32', status: 'success' },
+    { id: 2, filename: `backup-${moduleName}-maio.csv`,   registros: 340, erros: 0, data: '2026-05-20 09:15', status: 'success' },
+    { id: 3, filename: `importacao-teste.xlsx`,            registros: 0,   erros: 8, data: '2026-05-18 16:44', status: 'error'   },
   ])
 
-  // Auto-build initial mapping
-  const buildAutoMapping = useCallback(() => {
+  // Build mapping from real columns + module aliases
+  const buildMappingFromHeaders = useCallback(
+    (headers: string[]) => {
+      const fieldsWithAliases = systemFields.map((sf) => ({
+        ...sf,
+        aliases: getAliasesForModule(moduleName, sf.key),
+      }))
+      return buildAutoMapping(headers, fieldsWithAliases)
+    },
+    [systemFields, moduleName]
+  )
+
+  // Fallback mapping from mock columns
+  const buildFallbackMapping = useCallback(() => {
     const m: Record<string, string> = {}
     systemFields.forEach((sf) => {
       const match = mockFileColumns.find(
@@ -172,14 +201,32 @@ export function ImportModal({
   }, [systemFields, mockFileColumns])
 
   const onDrop = useCallback(
-    (accepted: File[]) => {
+    async (accepted: File[]) => {
       if (accepted.length === 0) return
       const f = accepted[0]
       setFile(f)
-      setMapping(buildAutoMapping())
+
+      try {
+        const result = await parseFile(f)
+        setRealColumns(result.headers)
+        setRealPreviewRows(
+          result.rows.slice(0, 5).map((row) => {
+            const r: Record<string, string> = {}
+            result.headers.forEach((h) => { r[h] = String(row[h] ?? '') })
+            return r
+          })
+        )
+        setParsedRows(result.rows)
+        setTotalParsedRows(result.totalRows)
+        setMapping(buildMappingFromHeaders(result.headers))
+      } catch {
+        // Parsing failed — keep mock columns as preview, use fallback mapping
+        setMapping(buildFallbackMapping())
+      }
+
       setStep('preview')
     },
-    [buildAutoMapping]
+    [buildMappingFromHeaders, buildFallbackMapping]
   )
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
@@ -198,30 +245,50 @@ export function ImportModal({
     setProgress(0)
     setProcessingStep(0)
 
-    const steps = [
-      { duration: 700, progress: 22 },
-      { duration: 900, progress: 55 },
-      { duration: 1100, progress: 85 },
-      { duration: 600, progress: 100 },
+    const stepTimings = [
+      { duration: 700,  progress: 22  },
+      { duration: 900,  progress: 55  },
+      { duration: 1100, progress: 85  },
+      { duration: 600,  progress: 100 },
     ]
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((r) => setTimeout(r, steps[i].duration))
+    for (let i = 0; i < stepTimings.length; i++) {
+      await new Promise((r) => setTimeout(r, stepTimings[i].duration))
       setProcessingStep(i + 1)
-      setProgress(steps[i].progress)
+      setProgress(stepTimings[i].progress)
     }
 
-    // Mock results
-    const count = Math.floor(Math.random() * 80) + 180
-    const mockErrors: ImportError[] = [
-      { linha: 14, campo: 'Código', erro: 'Código duplicado no sistema' },
-      { linha: 27, campo: 'Material', erro: 'Material não cadastrado' },
-      { linha: 89, campo: 'Quantidade', erro: 'Valor inválido: texto' },
-    ]
-    setImportCount(count)
-    setErrors(mockErrors)
+    if (parsedRows.length > 0) {
+      // Real validation using the parsed file and current column mapping
+      const fieldsWithAliases = systemFields.map((sf) => ({
+        ...sf,
+        aliases: getAliasesForModule(moduleName, sf.key),
+      }))
+      const result = validateRows(parsedRows, fieldsWithAliases, mapping)
+      setImportCount(result.valid.length)
+      setErrors(result.errors.slice(0, 20)) // cap at 20 for UI readability
+      onImportComplete?.(result.valid)
+      toast(
+        result.valid.length > 0 ? 'success' : 'error',
+        `${result.valid.length} ${moduleTitle.toLowerCase()} importados`,
+        result.errors.length > 0
+          ? `${result.errors.length} linha${result.errors.length !== 1 ? 's' : ''} com erros ignorada${result.errors.length !== 1 ? 's' : ''}`
+          : 'Todos os registros válidos'
+      )
+    } else {
+      // No real file was parsed — fallback mock results
+      const count = Math.floor(Math.random() * 80) + 180
+      const mockErrors: ImportError[] = [
+        { linha: 14, campo: 'Código',     erro: 'Código duplicado no sistema' },
+        { linha: 27, campo: 'Material',   erro: 'Material não cadastrado'      },
+        { linha: 89, campo: 'Quantidade', erro: 'Valor inválido: texto'        },
+      ]
+      setImportCount(count)
+      setErrors(mockErrors)
+      toast('success', `${count} ${moduleTitle.toLowerCase()} importados`, `3 linhas com erros foram ignoradas`)
+    }
+
     setStep('done')
-    toast('success', `${count} ${moduleTitle.toLowerCase()} importados`, `3 linhas com erros foram ignoradas`)
   }
 
   function handleClose() {
@@ -234,8 +301,18 @@ export function ImportModal({
       setProgress(0)
       setProcessingStep(0)
       setShowHistory(false)
+      setRealColumns(null)
+      setRealPreviewRows(null)
+      setParsedRows([])
+      setTotalParsedRows(0)
     }, 300)
   }
+
+  // Build template fields for download (label + required flag + module-specific example)
+  const templateFields = systemFields.map((sf) => ({
+    label:    sf.label,
+    required: sf.required,
+  }))
 
   const isLocked = step === 'processing'
 
@@ -329,10 +406,16 @@ export function ImportModal({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Baixar modelo:</span>
-                    <button className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/8 transition-colors">
+                    <button
+                      onClick={() => downloadTemplateXLSX(moduleName, templateFields)}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/8 transition-colors"
+                    >
                       <FileDown size={11} /> XLSX
                     </button>
-                    <button className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/8 transition-colors">
+                    <button
+                      onClick={() => downloadTemplateCSV(moduleName, templateFields)}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/8 transition-colors"
+                    >
                       <FileDown size={11} /> CSV
                     </button>
                   </div>
@@ -408,7 +491,7 @@ export function ImportModal({
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatBytes(file.size)} · {mockPreviewData.length + 200} linhas detectadas
+                      {formatBytes(file.size)} · {displayTotal} linhas detectadas
                     </p>
                   </div>
                   <Badge variant="success" className="flex-shrink-0">
@@ -426,7 +509,7 @@ export function ImportModal({
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-border bg-muted/60">
-                            {mockFileColumns.map((col) => (
+                            {displayColumns.map((col) => (
                               <th
                                 key={col}
                                 className="whitespace-nowrap px-3 py-2 text-left font-semibold text-muted-foreground"
@@ -437,12 +520,12 @@ export function ImportModal({
                           </tr>
                         </thead>
                         <tbody>
-                          {mockPreviewData.slice(0, 5).map((row, i) => (
+                          {displayRows.slice(0, 5).map((row, i) => (
                             <tr
                               key={i}
                               className="border-b border-border last:border-0 hover:bg-muted/30"
                             >
-                              {mockFileColumns.map((col) => (
+                              {displayColumns.map((col) => (
                                 <td
                                   key={col}
                                   className="whitespace-nowrap px-3 py-2 text-foreground"
@@ -457,7 +540,7 @@ export function ImportModal({
                     </div>
                   </div>
                   <p className="mt-1.5 text-[10px] text-muted-foreground">
-                    Mostrando 5 de {mockPreviewData.length + 200} linhas
+                    Mostrando {Math.min(5, displayRows.length)} de {displayTotal} linhas
                   </p>
                 </div>
               </motion.div>
@@ -527,7 +610,7 @@ export function ImportModal({
                                 className="w-full rounded-lg border border-border bg-input px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                               >
                                 <option value="">— Ignorar —</option>
-                                {mockFileColumns.map((col) => (
+                                {displayColumns.map((col) => (
                                   <option key={col} value={col}>
                                     {col}
                                   </option>
@@ -575,7 +658,6 @@ export function ImportModal({
                 animate={{ opacity: 1 }}
                 className="space-y-6 py-4"
               >
-                {/* Progress bar */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-foreground">Importando dados...</span>
@@ -584,10 +666,9 @@ export function ImportModal({
                   <Progress value={progress} className="h-2.5" />
                 </div>
 
-                {/* Steps */}
                 <div className="space-y-2.5">
                   {PROCESSING_STEPS.map((s, i) => {
-                    const done = i < processingStep
+                    const done   = i < processingStep
                     const active = i === processingStep - 1 && progress < 100
                     return (
                       <motion.div
@@ -621,11 +702,9 @@ export function ImportModal({
                         <span
                           className={cn(
                             'text-sm font-medium',
-                            done
-                              ? 'text-success'
-                              : active
-                                ? 'text-primary'
-                                : 'text-muted-foreground'
+                            done   ? 'text-success'         :
+                            active ? 'text-primary'         :
+                                     'text-muted-foreground'
                           )}
                         >
                           {s.label}
@@ -658,7 +737,6 @@ export function ImportModal({
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-5"
               >
-                {/* Success header */}
                 <div className="flex flex-col items-center gap-3 py-4">
                   <motion.div
                     initial={{ scale: 0 }}
@@ -676,12 +754,11 @@ export function ImportModal({
                   </div>
                 </div>
 
-                {/* Summary row */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Importados', value: importCount, color: 'text-success', bg: 'bg-success/8' },
-                    { label: 'Com erros', value: errors.length, color: 'text-destructive', bg: 'bg-destructive/8' },
-                    { label: 'Total no arquivo', value: importCount + errors.length + 3, color: 'text-foreground', bg: 'bg-muted/50' },
+                    { label: 'Importados',      value: importCount,                       color: 'text-success',     bg: 'bg-success/8'     },
+                    { label: 'Com erros',        value: errors.length,                     color: 'text-destructive', bg: 'bg-destructive/8' },
+                    { label: 'Total no arquivo', value: importCount + errors.length,        color: 'text-foreground',  bg: 'bg-muted/50'      },
                   ].map((item) => (
                     <div key={item.label} className={cn('rounded-xl p-3 text-center', item.bg)}>
                       <p className={cn('text-xl font-bold tabular-nums', item.color)}>
@@ -692,28 +769,21 @@ export function ImportModal({
                   ))}
                 </div>
 
-                {/* Error table */}
                 {errors.length > 0 && (
                   <div>
                     <div className="mb-2 flex items-center gap-1.5">
                       <AlertTriangle size={13} className="text-warning" />
                       <p className="text-xs font-semibold text-warning">
-                        {errors.length} linhas com erros foram ignoradas
+                        {errors.length} linha{errors.length !== 1 ? 's' : ''} com erros{errors.length !== 1 ? ' foram' : ' foi'} ignorada{errors.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                     <div className="overflow-x-auto rounded-xl border border-destructive/20">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-border bg-destructive/5">
-                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
-                              Linha
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
-                              Campo
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
-                              Erro
-                            </th>
+                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Linha</th>
+                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Campo</th>
+                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Erro</th>
                           </tr>
                         </thead>
                         <tbody>

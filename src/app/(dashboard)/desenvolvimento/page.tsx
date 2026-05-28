@@ -141,7 +141,7 @@ const RESPONSAVEIS = [
 const TABS: { id: TabView; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'dashboard',        label: 'Dashboard',         icon: LayoutDashboard },
   { id: 'pecas',            label: 'Desenvolv. de Peças', icon: Lightbulb      },
-  { id: 'conjuntos',        label: 'Conjuntos',         icon: Layers          },
+  { id: 'conjuntos',        label: 'Produtos',          icon: Layers          },
   { id: 'nova_solicitacao', label: 'Nova Solicitação',  icon: Send            },
   { id: 'historico',        label: 'Histórico',         icon: History         },
   { id: 'analises',         label: 'Análises',          icon: BarChart2       },
@@ -522,8 +522,8 @@ function ImportarConjuntoModal({
               <Boxes size={15} className="text-primary" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-foreground">Importar Conjunto</h2>
-              <p className="text-xs text-muted-foreground">Selecione um conjunto e o ERP importa todas as peças automaticamente</p>
+              <h2 className="text-sm font-bold text-foreground">Importar Produto</h2>
+              <p className="text-xs text-muted-foreground">Selecione um produto e o ERP importa todas as peças automaticamente</p>
             </div>
           </div>
           <button
@@ -569,8 +569,8 @@ function ImportarConjuntoModal({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Boxes size={28} className="text-muted-foreground/30 mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">Nenhum conjunto encontrado</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Ajuste os filtros ou cadastre novos conjuntos</p>
+              <p className="text-sm font-medium text-muted-foreground">Nenhum produto encontrado</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Ajuste os filtros ou cadastre novos produtos</p>
             </div>
           ) : (
             filtered.map((c) => {
@@ -611,7 +611,7 @@ function ImportarConjuntoModal({
                         <span className="text-border">·</span>
                         <span>{c.pecas.length} tipo{c.pecas.length !== 1 ? 's' : ''} de peça</span>
                         <span className="text-border">·</span>
-                        <span className="font-semibold text-foreground">{totalUnids} un. por conjunto</span>
+                        <span className="font-semibold text-foreground">{totalUnids} un. por produto</span>
                       </div>
                     </div>
                     <div className={cn(
@@ -667,7 +667,7 @@ function ImportarConjuntoModal({
               <div className="flex items-center gap-4 flex-1 min-w-0">
                 <div className="flex-shrink-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Quantidade de Conjuntos
+                    Quantidade de Produtos
                   </p>
                   <Input
                     type="number"
@@ -686,7 +686,7 @@ function ImportarConjuntoModal({
                     <span className="font-bold text-primary">{totalUnidades}</span> unidades no total
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {qtd > 1 && `${selected.pecas.length} peças × ${qtd} conjuntos = ${totalUnidades} unidades`}
+                    {qtd > 1 && `${selected.pecas.length} peças × ${qtd} produtos = ${totalUnidades} unidades`}
                   </p>
                 </div>
               </div>
@@ -707,7 +707,7 @@ function ImportarConjuntoModal({
           ) : (
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">
-                {filtered.length} conjunto{filtered.length !== 1 ? 's' : ''} disponível{filtered.length !== 1 ? 'is' : ''} — selecione um para configurar a importação
+                {filtered.length} produto{filtered.length !== 1 ? 's' : ''} disponível{filtered.length !== 1 ? 'is' : ''} — selecione um para configurar a importação
               </p>
               <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
             </div>
@@ -1278,11 +1278,11 @@ export default function DesenvolvimentoPage() {
                     </div>
                   </motion.div>
                   <div>
-                    <h2 className="text-xl font-bold text-foreground leading-none mb-1">Área de Integração de Conjuntos</h2>
+                    <h2 className="text-xl font-bold text-foreground leading-none mb-1">Área de Integração de Produtos</h2>
                     <p className="text-xs text-muted-foreground mb-3">Geração inteligente de demandas de produção a partir de estruturas cadastradas</p>
                     <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                      Conjuntos são estruturas industriais completas — painéis, gabinetes, estruturas — compostas por múltiplas peças.
-                      Na <strong className="text-foreground">Nova Solicitação</strong>, selecione um conjunto, defina a quantidade e o ERP
+                      Produtos são estruturas industriais completas — painéis, gabinetes, estruturas — compostas por múltiplas peças.
+                      Na <strong className="text-foreground">Nova Solicitação</strong>, selecione um produto, defina a quantidade e o ERP
                       calcula automaticamente todas as peças necessárias, verifica o estoque e gera apenas a produção faltante.
                     </p>
                   </div>
@@ -1291,7 +1291,7 @@ export default function DesenvolvimentoPage() {
                   <Link href="/conjuntos">
                     <Button className="gap-2 bg-primary hover:bg-primary/90 text-white w-full sm:w-auto">
                       <Boxes size={14} />
-                      Módulo de Conjuntos
+                      Módulo de Produtos
                     </Button>
                   </Link>
                   <Button
@@ -1312,8 +1312,8 @@ export default function DesenvolvimentoPage() {
                   {[
                     {
                       step: '01',
-                      title: 'Selecionar Conjunto',
-                      desc: 'Escolha um conjunto cadastrado. Defina quantos conjuntos completos precisam ser fabricados — as quantidades são multiplicadas automaticamente.',
+                      title: 'Selecionar Produto',
+                      desc: 'Escolha um produto cadastrado. Defina quantos produtos completos precisam ser fabricados — as quantidades são multiplicadas automaticamente.',
                       icon: Boxes,
                       color: 'text-primary', bg: 'bg-primary/8', border: 'border-primary/20', numColor: 'text-primary/15',
                     },
@@ -1357,13 +1357,13 @@ export default function DesenvolvimentoPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Fluxo de Produção Industrial</CardTitle>
-                  <CardDescription className="text-xs">Do conjunto cadastrado à peça finalizada — visão completa do pipeline</CardDescription>
+                  <CardDescription className="text-xs">Do produto cadastrado à peça finalizada — visão completa do pipeline</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto pb-2">
                     <div className="flex items-center gap-0 min-w-max py-2 px-1">
                       {[
-                        { label: 'Conjunto',    icon: Boxes,        color: 'text-primary',          bg: 'bg-primary/10',    border: 'border-primary/30'   },
+                        { label: 'Produto',     icon: Boxes,        color: 'text-primary',          bg: 'bg-primary/10',    border: 'border-primary/30'   },
                         { label: 'Estoque',     icon: Package,      color: 'text-accent',           bg: 'bg-accent/10',     border: 'border-accent/30'    },
                         { label: 'Δ Produção',  icon: TrendingUp,   color: 'text-warning',          bg: 'bg-warning/10',    border: 'border-warning/30'   },
                         { label: 'Programação', icon: FileText,     color: 'text-primary',          bg: 'bg-primary/10',    border: 'border-primary/30'   },
@@ -1418,7 +1418,7 @@ export default function DesenvolvimentoPage() {
                     {
                       icon: TrendingUp,
                       title: 'Multiplicação Automática de Quantidades',
-                      desc: '1 conjunto com 5 peças × 10 conjuntos = 50 unidades geradas instantaneamente. Nenhum cálculo manual necessário.',
+                      desc: '1 produto com 5 peças × 10 produtos = 50 unidades geradas instantaneamente. Nenhum cálculo manual necessário.',
                       color: 'text-primary', bg: 'bg-primary/10',
                     },
                     {
@@ -1466,7 +1466,7 @@ export default function DesenvolvimentoPage() {
               {registeredConjuntos.filter((c) => c.status === 'ativo').length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-                    Conjuntos Disponíveis para Importação ({registeredConjuntos.filter((c) => c.status === 'ativo').length})
+                    Produtos Disponíveis para Importação ({registeredConjuntos.filter((c) => c.status === 'ativo').length})
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {registeredConjuntos.filter((c) => c.status === 'ativo').slice(0, 4).map((c, i) => (
@@ -1501,7 +1501,7 @@ export default function DesenvolvimentoPage() {
                   {registeredConjuntos.filter((c) => c.status === 'ativo').length > 4 && (
                     <Link href="/conjuntos">
                       <p className="text-xs text-primary hover:underline mt-2 text-center">
-                        Ver todos os {registeredConjuntos.filter((c) => c.status === 'ativo').length} conjuntos →
+                        Ver todos os {registeredConjuntos.filter((c) => c.status === 'ativo').length} produtos →
                       </p>
                     </Link>
                   )}
@@ -1951,9 +1951,9 @@ export default function DesenvolvimentoPage() {
                         <Boxes size={18} className="text-primary" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-foreground">Importar de Conjunto Cadastrado</p>
+                        <p className="text-sm font-bold text-foreground">Importar de Produto Cadastrado</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Selecione um conjunto, defina a quantidade e todas as peças são carregadas automaticamente com processos e quantidades multiplicados.
+                          Selecione um produto, defina a quantidade e todas as peças são carregadas automaticamente com processos e quantidades multiplicados.
                         </p>
                       </div>
                     </div>
@@ -1963,7 +1963,7 @@ export default function DesenvolvimentoPage() {
                       onClick={() => setImportModal(true)}
                     >
                       <Boxes size={14} />
-                      Importar Conjunto
+                      Importar Produto
                     </Button>
                   </motion.div>
 
@@ -2071,9 +2071,9 @@ export default function DesenvolvimentoPage() {
                       <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
                         <Boxes size={14} className="flex-shrink-0 mt-0.5 text-primary" />
                         <div>
-                          <span className="font-semibold text-foreground">Integração com Conjuntos ativa.</span>
+                          <span className="font-semibold text-foreground">Integração com Produtos ativa.</span>
                           <span className="text-muted-foreground ml-1">
-                            Peças importadas via Conjunto preservam código, material, espessura e processos originais.
+                            Peças importadas via Produto preservam código, material, espessura e processos originais.
                             Quantidades foram multiplicadas automaticamente. Distribuição por OS disponível para cada peça.
                           </span>
                         </div>

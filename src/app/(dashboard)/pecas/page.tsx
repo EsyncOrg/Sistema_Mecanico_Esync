@@ -1,105 +1,300 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, Filter, Upload, Download, Package,
-  Trash2, X, FileSpreadsheet,
+  Trash2, X, FileSpreadsheet, FileBox, FileText, ListFilter,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ExportModal } from '@/components/shared/ExportModal'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { PermissionGate } from '@/components/shared/PermissionGate'
+import { ColumnFilterDropdown } from '@/components/shared/ColumnFilterDropdown'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { mockPecas } from '@/mocks'
-import { formatDate, formatNumber } from '@/lib/utils'
-import { STATUS_LABELS } from '@/lib/constants'
-import type { StatusPeca } from '@/types'
+import { formatDate } from '@/lib/utils'
+import type { Peca } from '@/types'
 
 // ─── Export config ────────────────────────────────────────────────────────────
 
 const EXPORT_COLUMNS = [
-  { key: 'codigo', label: 'Código' },
-  { key: 'nome', label: 'Nome' },
-  { key: 'categoria', label: 'Categoria' },
-  { key: 'material', label: 'Material' },
-  { key: 'espessura', label: 'Espessura (mm)' },
-  { key: 'quantidade', label: 'Quantidade' },
-  { key: 'unidade', label: 'Unidade' },
-  { key: 'localizacao', label: 'Localização' },
-  { key: 'status', label: 'Status' },
-  { key: 'fornecedor', label: 'Fornecedor' },
-  { key: 'peso', label: 'Peso (kg)' },
-  { key: 'atualizadoEm', label: 'Atualizado em' },
+  { key: 'codigo',          label: 'Código'             },
+  { key: 'espessura',       label: 'Espessura (mm)'     },
+  { key: 'descricao',       label: 'Descrição'          },
+  { key: 'grupo',           label: 'Grupo'              },
+  { key: 'familia',         label: 'Família'            },
+  { key: 'codigoSistema',   label: 'Código do Sistema'  },
+  { key: 'areaPeca',        label: 'Área Peça (mm²)'    },
+  { key: 'desperdicio',     label: 'Desperdício (m²)'   },
+  { key: 'percFabricacao',  label: '% Da Fabricação'    },
+  { key: 'percPintura',     label: '% Da Pintura'       },
+  { key: 'peso',            label: 'Peso (kg)'          },
+  { key: 'cor',             label: 'COR'                },
+  { key: 'arquivo3d',       label: '3D'                 },
+  { key: 'planoDobra',      label: 'Plano Dobra'        },
+  { key: 'atualizadoEm',    label: 'Atualizado'         },
 ]
 
 // ─── Import config ────────────────────────────────────────────────────────────
 
 const IMPORT_SYSTEM_FIELDS = [
-  { key: 'codigo', label: 'Código', required: true },
-  { key: 'nome', label: 'Nome', required: true },
-  { key: 'material', label: 'Material', required: true },
-  { key: 'espessura', label: 'Espessura (mm)', required: false },
-  { key: 'quantidade', label: 'Quantidade', required: false },
-  { key: 'quantidadeMinima', label: 'Qtd. Mínima', required: false },
-  { key: 'localizacao', label: 'Localização', required: false },
-  { key: 'status', label: 'Status', required: false },
-  { key: 'categoria', label: 'Categoria', required: false },
-  { key: 'fornecedor', label: 'Fornecedor', required: false },
+  { key: 'codigo',          label: 'Código',            required: true  },
+  { key: 'espessura',       label: 'Espessura (mm)',     required: false },
+  { key: 'descricao',       label: 'Descrição',          required: false },
+  { key: 'grupo',           label: 'Grupo',             required: false },
+  { key: 'familia',         label: 'Família',           required: false },
+  { key: 'codigoSistema',   label: 'Código do Sistema', required: false },
+  { key: 'areaPeca',        label: 'Área Peça (mm²)',   required: false },
+  { key: 'desperdicio',     label: 'Desperdício (m²)',  required: false },
+  { key: 'percFabricacao',  label: '% Da Fabricação',   required: false },
+  { key: 'percPintura',     label: '% Da Pintura',      required: false },
+  { key: 'peso',            label: 'Peso (kg)',         required: false },
+  { key: 'cor',             label: 'COR',               required: false },
+  { key: 'arquivo3d',       label: '3D',                required: false },
+  { key: 'planoDobra',      label: 'Plano Dobra',       required: false },
 ]
 
-const MOCK_FILE_COLUMNS = ['Código', 'Nome', 'Material', 'Espessura (mm)', 'Quantidade', 'Qtd. Mínima', 'Localização', 'Status', 'Categoria', 'Fornecedor']
+const MOCK_FILE_COLUMNS = [
+  'Código', 'Espessura (mm)', 'Descrição', 'Grupo', 'Família',
+  'Código do Sistema', 'Área Peça (mm²)', 'Desperdício (m²)',
+  '% Da Fabricação', '% Da Pintura', 'Peso (kg)', 'COR', '3D', 'Plano Dobra',
+]
 
 const MOCK_PREVIEW_DATA = [
-  { 'Código': 'PCA-0100', 'Nome': 'Flange Cônica Ø80mm', 'Material': 'Aço Inox 304', 'Espessura (mm)': '8', 'Quantidade': '24', 'Qtd. Mínima': '10', 'Localização': 'C3-P1', 'Status': 'disponivel', 'Categoria': 'Flanges', 'Fornecedor': 'AçoTech' },
-  { 'Código': 'PCA-0101', 'Nome': 'Placa de Base 200x200', 'Material': 'Aço Carbono 1020', 'Espessura (mm)': '10', 'Quantidade': '6', 'Qtd. Mínima': '15', 'Localização': 'A2-P4', 'Status': 'estoque_baixo', 'Categoria': 'Placas', 'Fornecedor': 'MetalSul' },
-  { 'Código': 'PCA-0102', 'Nome': 'Anel de Vedação 120mm', 'Material': 'Alumínio 6061', 'Espessura (mm)': '5', 'Quantidade': '80', 'Qtd. Mínima': '30', 'Localização': 'B1-P2', 'Status': 'disponivel', 'Categoria': 'Anéis', 'Fornecedor': 'AlumPro' },
-  { 'Código': 'PCA-0103', 'Nome': 'Tampa de Inspeção', 'Material': 'Aço Inox 316', 'Espessura (mm)': '6', 'Quantidade': '0', 'Qtd. Mínima': '5', 'Localização': 'D4-P1', 'Status': 'indisponivel', 'Categoria': 'Tampas', 'Fornecedor': 'AçoTech' },
-  { 'Código': 'PCA-0104', 'Nome': 'Suporte Angular 90°', 'Material': 'Aço Carbono 1045', 'Espessura (mm)': '12', 'Quantidade': '33', 'Qtd. Mínima': '20', 'Localização': 'C1-P3', 'Status': 'disponivel', 'Categoria': 'Suportes', 'Fornecedor': 'FerroMais' },
+  {
+    'Código': 'PCA-0100', 'Espessura (mm)': '12.0',
+    'Descrição': 'Suporte de Fixação do Teto Protetor 700mm x 300mm p/ Quadro 700(L)x300(P)',
+    'Grupo': 'Fixação', 'Família': 'Suportes', 'Código do Sistema': 'SYS-SP-100',
+    'Área Peça (mm²)': '16000.00', 'Desperdício (m²)': '0.0082',
+    '% Da Fabricação': '22.0', '% Da Pintura': '8.0', 'Peso (kg)': '0.80',
+    'COR': 'Preto', '3D': '/models/pca0100.ipt', 'Plano Dobra': '/docs/pca0100.pdf',
+  },
+  {
+    'Código': 'PCA-0101', 'Espessura (mm)': '3.0',
+    'Descrição': 'Chapa Cortada 500x300mm',
+    'Grupo': 'Conformado', 'Família': 'Chapas', 'Código do Sistema': 'SYS-CH-100',
+    'Área Peça (mm²)': '150000.00', 'Desperdício (m²)': '0.0320',
+    '% Da Fabricação': '6.0', '% Da Pintura': '0.0', 'Peso (kg)': '3.50',
+    'COR': 'Natural', '3D': '', 'Plano Dobra': '',
+  },
+  {
+    'Código': 'PCA-0102', 'Espessura (mm)': '8.0',
+    'Descrição': 'Tampa de Proteção Fresada',
+    'Grupo': 'Proteção', 'Família': 'Tampas', 'Código do Sistema': 'SYS-CV-100',
+    'Área Peça (mm²)': '14400.00', 'Desperdício (m²)': '0.0048',
+    '% Da Fabricação': '15.5', '% Da Pintura': '10.0', 'Peso (kg)': '0.90',
+    'COR': 'Grafite', '3D': '/models/pca0102.ipt', 'Plano Dobra': '',
+  },
+  {
+    'Código': 'PCA-0103', 'Espessura (mm)': '4.0',
+    'Descrição': 'Perfil Dobrado U 80x40mm',
+    'Grupo': 'Conformado', 'Família': 'Perfis', 'Código do Sistema': 'SYS-PF-100',
+    'Área Peça (mm²)': '160000.00', 'Desperdício (m²)': '0.0280',
+    '% Da Fabricação': '12.0', '% Da Pintura': '12.0', 'Peso (kg)': '5.20',
+    'COR': 'Branco', '3D': '', 'Plano Dobra': '/docs/pca0103.pdf',
+  },
+  {
+    'Código': 'PCA-0104', 'Espessura (mm)': '50.0',
+    'Descrição': 'Eixo Torneado Ø50x300mm',
+    'Grupo': 'Usinado', 'Família': 'Eixos', 'Código do Sistema': 'SYS-EX-100',
+    'Área Peça (mm²)': '1963.50', 'Desperdício (m²)': '0.0015',
+    '% Da Fabricação': '45.0', '% Da Pintura': '0.0', 'Peso (kg)': '4.60',
+    'COR': 'Natural', '3D': '/models/pca0104.ipt', 'Plano Dobra': '',
+  },
 ]
+
+// Shared compact classes for the dense table
+const TH = 'px-2 py-2 text-[11px] font-semibold whitespace-nowrap'
+const TD = 'px-2 py-1.5 align-top'
+
+// ─── Column filter helpers ─────────────────────────────────────────────────────
+
+const COLUMN_DEFS = [
+  { key: 'codigo',         label: 'Código'       },
+  { key: 'espessura',      label: 'Esp. mm'      },
+  { key: 'descricao',      label: 'Descrição'    },
+  { key: 'grupo',          label: 'Grupo'        },
+  { key: 'familia',        label: 'Família'      },
+  { key: 'codigoSistema',  label: 'Cód. Sistema' },
+  { key: 'areaPeca',       label: 'Área mm²'     },
+  { key: 'desperdicio',    label: 'Desp. m²'     },
+  { key: 'percFabricacao', label: '% Fab.'       },
+  { key: 'percPintura',    label: '% Pint.'      },
+  { key: 'peso',           label: 'Peso kg'      },
+  { key: 'cor',            label: 'COR'          },
+  { key: 'arquivo3d',      label: '3D'           },
+  { key: 'planoDobra',     label: 'Plano'        },
+  { key: 'atualizadoEm',   label: 'Atualizado'   },
+]
+
+const NUMERIC_COLS = new Set(['espessura', 'areaPeca', 'desperdicio', 'percFabricacao', 'percPintura', 'peso'])
+
+function getPecaFilterValue(peca: Peca, key: string): string {
+  switch (key) {
+    case 'codigo':         return peca.codigo
+    case 'espessura':      return String(peca.espessura)
+    case 'descricao':      return peca.descricao
+    case 'grupo':          return peca.grupo
+    case 'familia':        return peca.familia
+    case 'codigoSistema':  return peca.codigoSistema || '—'
+    case 'areaPeca':       return peca.areaPeca.toFixed(2)
+    case 'desperdicio':    return peca.desperdicio.toFixed(4)
+    case 'percFabricacao': return `${peca.percFabricacao.toFixed(1)}%`
+    case 'percPintura':    return `${peca.percPintura.toFixed(1)}%`
+    case 'peso':           return peca.peso.toFixed(2)
+    case 'cor':            return peca.cor
+    case 'arquivo3d':      return peca.arquivo3d ? 'Sim' : '—'
+    case 'planoDobra':     return peca.planoDobra ? 'Sim' : '—'
+    case 'atualizadoEm':   return formatDate(peca.atualizadoEm)
+    default:               return ''
+  }
+}
+
+function sortFilterValues(vals: string[], key: string): string[] {
+  if (NUMERIC_COLS.has(key)) {
+    return [...vals].sort((a, b) => parseFloat(a) - parseFloat(b))
+  }
+  return [...vals].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type FilterState = Record<string, Set<string>>
+type OpenFilter  = { key: string; label: string; rect: DOMRect }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PecasPage() {
   const { canEdit } = useAuth()
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusPeca | 'todos'>('todos')
+  const [grupoFilter, setGrupoFilter] = useState<string>('todos')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [columnFilters, setColumnFilters] = useState<FilterState>({})
+  const [openFilter, setOpenFilter] = useState<OpenFilter | null>(null)
 
-  const filtered = mockPecas.filter((p) => {
-    const matchSearch =
-      p.nome.toLowerCase().includes(search.toLowerCase()) ||
-      p.codigo.toLowerCase().includes(search.toLowerCase()) ||
-      p.material.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'todos' || p.status === statusFilter
-    return matchSearch && matchStatus
-  })
+  const grupos = ['todos', ...Array.from(new Set(mockPecas.map((p) => p.grupo))).sort()]
 
-  const totalItens = mockPecas.reduce((acc, p) => acc + p.quantidade, 0)
-  const itensEstoqueBaixo = mockPecas.filter((p) => p.status === 'estoque_baixo').length
-  const itensIndisponiveis = mockPecas.filter((p) => p.status === 'indisponivel').length
+  // ─── Filtered rows (text search + grupo chip + column filters) ───────────────
 
-  const statusOptions: Array<{ value: StatusPeca | 'todos'; label: string }> = [
-    { value: 'todos', label: 'Todos' },
-    { value: 'disponivel', label: 'Disponível' },
-    { value: 'estoque_baixo', label: 'Estoque Baixo' },
-    { value: 'em_producao', label: 'Em Produção' },
-    { value: 'reservado', label: 'Reservado' },
-    { value: 'indisponivel', label: 'Indisponível' },
-  ]
+  const filtered = useMemo(() => {
+    return mockPecas.filter((p) => {
+      const q = search.toLowerCase()
+      const matchSearch =
+        p.codigo.toLowerCase().includes(q) ||
+        p.descricao.toLowerCase().includes(q) ||
+        p.grupo.toLowerCase().includes(q) ||
+        p.familia.toLowerCase().includes(q) ||
+        p.cor.toLowerCase().includes(q) ||
+        p.codigoSistema.toLowerCase().includes(q)
+      if (!matchSearch) return false
+      if (grupoFilter !== 'todos' && p.grupo !== grupoFilter) return false
+      for (const [key, vals] of Object.entries(columnFilters)) {
+        if (vals.size === 0) continue
+        if (!vals.has(getPecaFilterValue(p, key))) return false
+      }
+      return true
+    })
+  }, [search, grupoFilter, columnFilters])
+
+  // ─── Cascading values for the open column dropdown ───────────────────────────
+
+  const openFilterKey = openFilter?.key ?? null
+
+  const openFilterValues = useMemo(() => {
+    if (!openFilterKey) return []
+    const cascade = mockPecas.filter((p) => {
+      const q = search.toLowerCase()
+      const matchSearch =
+        p.codigo.toLowerCase().includes(q) ||
+        p.descricao.toLowerCase().includes(q) ||
+        p.grupo.toLowerCase().includes(q) ||
+        p.familia.toLowerCase().includes(q) ||
+        p.cor.toLowerCase().includes(q) ||
+        p.codigoSistema.toLowerCase().includes(q)
+      if (!matchSearch) return false
+      if (grupoFilter !== 'todos' && p.grupo !== grupoFilter) return false
+      for (const [k, vals] of Object.entries(columnFilters)) {
+        if (k === openFilterKey || vals.size === 0) continue
+        if (!vals.has(getPecaFilterValue(p, k))) return false
+      }
+      return true
+    })
+    const uniq = new Set(cascade.map((p) => getPecaFilterValue(p, openFilterKey)))
+    return sortFilterValues(Array.from(uniq), openFilterKey)
+  }, [openFilterKey, search, grupoFilter, columnFilters])
+
+  const activeColFilterCount = useMemo(
+    () => Object.values(columnFilters).filter((v) => v.size > 0).length,
+    [columnFilters],
+  )
+
+  // ─── Column filter handlers ──────────────────────────────────────────────────
+
+  function handleHeaderClick(key: string, label: string, e: React.MouseEvent<HTMLButtonElement>) {
+    if (openFilter?.key === key) { setOpenFilter(null); return }
+    setOpenFilter({ key, label, rect: e.currentTarget.getBoundingClientRect() })
+  }
+
+  function hasFilter(key: string) {
+    return (columnFilters[key]?.size ?? 0) > 0
+  }
+
+  function handleFilterChange(key: string, vals: Set<string>) {
+    setColumnFilters((prev) => ({ ...prev, [key]: vals }))
+  }
+
+  function handleClearFilter(key: string) {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  // ─── renderHeader ─────────────────────────────────────────────────────────────
+
+  function renderHeader(key: string, extraClass = '') {
+    const def    = COLUMN_DEFS.find((c) => c.key === key)!
+    const label  = def.label
+    const active = hasFilter(key)
+    return (
+      <TableHead className={`${TH} ${extraClass}`}>
+        <button
+          onClick={(e) => handleHeaderClick(key, label, e)}
+          className={`group inline-flex items-center gap-1 whitespace-nowrap transition-colors ${
+            active ? 'text-primary' : 'hover:text-foreground'
+          }`}
+        >
+          {label}
+          {active ? (
+            <span className="inline-flex items-center rounded bg-primary/15 px-1 py-0.5 text-[9px] font-bold leading-none text-primary">
+              {columnFilters[key]?.size}
+            </span>
+          ) : (
+            <ListFilter size={8} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-40" />
+          )}
+        </button>
+      </TableHead>
+    )
+  }
+
+  // ─── Selection helpers ────────────────────────────────────────────────────────
+
+  const totalPecas    = mockPecas.length
+  const com3d         = mockPecas.filter((p) => p.arquivo3d !== '').length
+  const comPlanoDobra = mockPecas.filter((p) => p.planoDobra !== '').length
 
   const allFilteredIds = filtered.map((p) => p.id)
-  const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selected.has(id))
-  const someSelected = allFilteredIds.some((id) => selected.has(id))
+  const allSelected    = allFilteredIds.length > 0 && allFilteredIds.every((id) => selected.has(id))
+  const someSelected   = allFilteredIds.some((id) => selected.has(id))
 
   function toggleAll() {
     if (allSelected) {
@@ -110,41 +305,43 @@ export default function PecasPage() {
   }
 
   function toggleOne(id: string) {
-    setSelected((s) => {
-      const n = new Set(s)
-      if (n.has(id)) { n.delete(id) } else { n.add(id) }
-      return n
-    })
+    setSelected((s) => { const n = new Set(s); if (n.has(id)) { n.delete(id) } else { n.add(id) }; return n })
   }
 
   function clearSelection() { setSelected(new Set()) }
 
-  // Flatten for export
-  const toExportRow = (p: (typeof mockPecas)[0]): Record<string, unknown> => ({
-    codigo: p.codigo,
-    nome: p.nome,
-    categoria: p.categoria,
-    material: p.material,
-    espessura: p.espessura,
-    quantidade: p.quantidade,
-    unidade: p.unidade,
-    localizacao: p.localizacao,
-    status: STATUS_LABELS[p.status] ?? p.status,
-    fornecedor: p.fornecedor ?? '',
-    peso: p.peso ?? '',
-    atualizadoEm: formatDate(p.atualizadoEm),
+  // ─── Export helpers ───────────────────────────────────────────────────────────
+
+  const toExportRow = (p: Peca): Record<string, unknown> => ({
+    codigo:         p.codigo,
+    espessura:      p.espessura,
+    descricao:      p.descricao,
+    grupo:          p.grupo,
+    familia:        p.familia,
+    codigoSistema:  p.codigoSistema,
+    areaPeca:       p.areaPeca.toFixed(2),
+    desperdicio:    p.desperdicio.toFixed(4),
+    percFabricacao: `${p.percFabricacao}%`,
+    percPintura:    `${p.percPintura}%`,
+    peso:           p.peso,
+    cor:            p.cor,
+    arquivo3d:      p.arquivo3d,
+    planoDobra:     p.planoDobra,
+    atualizadoEm:   formatDate(p.atualizadoEm),
   })
 
-  const allExport = mockPecas.map(toExportRow)
+  const allExport      = mockPecas.map(toExportRow)
   const filteredExport = filtered.map(toExportRow)
   const selectedExport = mockPecas.filter((p) => selected.has(p.id)).map(toExportRow)
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <PermissionGate module="pecas">
     <div>
       <PageHeader
         title="Peças"
-        subtitle={`${mockPecas.length} itens cadastrados · ${formatNumber(totalItens)} unidades em estoque`}
+        subtitle={`${totalPecas} peças cadastradas · ${com3d} com modelo 3D · ${comPlanoDobra} com plano de dobra`}
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Peças' }]}
         actions={
           canEdit('pecas') ? (
@@ -166,9 +363,9 @@ export default function PecasPage() {
       {/* Summary cards */}
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         {[
-          { label: 'Total de Itens', value: mockPecas.length, color: 'text-primary' },
-          { label: 'Estoque Baixo', value: itensEstoqueBaixo, color: 'text-warning' },
-          { label: 'Indisponíveis', value: itensIndisponiveis, color: 'text-destructive' },
+          { label: 'Total de Peças',  value: totalPecas,    color: 'text-primary'     },
+          { label: 'Com Modelo 3D',   value: com3d,         color: 'text-warning'     },
+          { label: 'Com Plano Dobra', value: comPlanoDobra, color: 'text-destructive' },
         ].map((item, i) => (
           <motion.div
             key={i}
@@ -189,7 +386,7 @@ export default function PecasPage() {
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Pesquisar por nome, código ou material..."
+              placeholder="Pesquisar por código, descrição, grupo, família, cor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -197,22 +394,64 @@ export default function PecasPage() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Filter size={13} className="text-muted-foreground" />
-            {statusOptions.map((opt) => (
+            {grupos.map((g) => (
               <button
-                key={opt.value}
-                onClick={() => setStatusFilter(opt.value)}
+                key={g}
+                onClick={() => setGrupoFilter(g)}
                 className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                  statusFilter === opt.value
+                  grupoFilter === g
                     ? 'bg-primary text-white'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
               >
-                {opt.label}
+                {g === 'todos' ? 'Todos' : g}
               </button>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Active column filter pills */}
+      <AnimatePresence>
+        {activeColFilterCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="mb-3 flex flex-wrap items-center gap-1.5 overflow-hidden"
+          >
+            <span className="text-[11px] text-muted-foreground">Filtros ativos:</span>
+            {Object.entries(columnFilters).map(([key, vals]) => {
+              if (vals.size === 0) return null
+              const lbl = COLUMN_DEFS.find((c) => c.key === key)?.label ?? key
+              return (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {lbl}:{' '}
+                  {vals.size === 1 ? Array.from(vals)[0] : `${vals.size} val.`}
+                  <button
+                    onClick={() => handleClearFilter(key)}
+                    className="ml-0.5 rounded-sm text-primary/60 transition-colors hover:text-primary"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              )
+            })}
+            {activeColFilterCount > 1 && (
+              <button
+                onClick={() => setColumnFilters({})}
+                className="text-[11px] text-muted-foreground underline transition-colors hover:text-foreground"
+              >
+                Limpar todos
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bulk action toolbar */}
       <AnimatePresence>
@@ -223,7 +462,7 @@ export default function PecasPage() {
             exit={{ opacity: 0, y: -10 }}
             className="mb-3 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/8 px-4 py-2.5"
           >
-            <FileSpreadsheet size={15} className="text-primary flex-shrink-0" />
+            <FileSpreadsheet size={15} className="flex-shrink-0 text-primary" />
             <span className="text-sm font-semibold text-primary">
               {selected.size} {selected.size === 1 ? 'peça selecionada' : 'peças selecionadas'}
             </span>
@@ -241,7 +480,7 @@ export default function PecasPage() {
               </Button>
               <button
                 onClick={clearSelection}
-                className="ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
+                className="ml-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted"
               >
                 <X size={14} />
               </button>
@@ -269,26 +508,33 @@ export default function PecasPage() {
                 }
               />
             ) : (
-              <Table>
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10">
+                    <TableHead className={`${TH} w-8`}>
                       <input
                         type="checkbox"
                         checked={allSelected}
                         ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
                         onChange={toggleAll}
-                        className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                        className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                       />
                     </TableHead>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead className="text-right">Espessura</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead>Localização</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Atualizado</TableHead>
+                    {renderHeader('codigo')}
+                    {renderHeader('espessura')}
+                    {renderHeader('descricao', 'min-w-[200px]')}
+                    {renderHeader('grupo')}
+                    {renderHeader('familia')}
+                    {renderHeader('codigoSistema')}
+                    {renderHeader('areaPeca')}
+                    {renderHeader('desperdicio')}
+                    {renderHeader('percFabricacao')}
+                    {renderHeader('percPintura')}
+                    {renderHeader('peso')}
+                    {renderHeader('cor')}
+                    {renderHeader('arquivo3d')}
+                    {renderHeader('planoDobra')}
+                    {renderHeader('atualizadoEm')}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -301,59 +547,105 @@ export default function PecasPage() {
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.02 }}
                         onClick={() => toggleOne(peca.id)}
-                        className={`border-b border-border transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'bg-primary/5 hover:bg-primary/8'
-                            : 'hover:bg-muted/40'
+                        className={`cursor-pointer border-b border-border transition-colors ${
+                          isSelected ? 'bg-primary/5 hover:bg-primary/8' : 'hover:bg-muted/40'
                         }`}
                       >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell className={TD} onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleOne(peca.id)}
-                            className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                            className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                           />
                         </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-xs font-semibold text-primary">
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap font-mono text-[11px] font-semibold text-primary">
                             {peca.codigo}
                           </span>
                         </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{peca.nome}</p>
-                            <p className="text-xs text-muted-foreground">{peca.categoria}</p>
-                          </div>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">{peca.espessura}</span>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">{peca.material}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm">{peca.espessura}mm</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={`text-sm font-semibold ${
-                              peca.quantidade < peca.quantidadeMinima
-                                ? 'text-destructive'
-                                : 'text-foreground'
-                            }`}
-                          >
-                            {formatNumber(peca.quantidade)}
+
+                        <TableCell className={`${TD} min-w-[200px]`}>
+                          <span className="text-xs font-medium leading-snug text-foreground">
+                            {peca.descricao}
                           </span>
-                          <span className="text-xs text-muted-foreground">/{peca.unidade}</span>
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono text-[11px]">
-                            {peca.localizacao}
-                          </Badge>
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">{peca.grupo}</span>
                         </TableCell>
-                        <TableCell>
-                          <StatusBadge status={peca.status} />
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">{peca.familia}</span>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-xs text-muted-foreground">
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                            {peca.codigoSistema || '—'}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">
+                            {peca.areaPeca.toFixed(2)}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">
+                            {peca.desperdicio.toFixed(4)}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">
+                            {peca.percFabricacao.toFixed(1)}%
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">
+                            {peca.percPintura.toFixed(1)}%
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-right`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">
+                            {peca.peso.toFixed(2)}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap text-xs">{peca.cor}</span>
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-center`}>
+                          {peca.arquivo3d ? (
+                            <span title={peca.arquivo3d} className="inline-flex items-center justify-center">
+                              <FileBox size={14} className="text-primary" />
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className={`${TD} text-center`}>
+                          {peca.planoDobra ? (
+                            <span title={peca.planoDobra} className="inline-flex items-center justify-center">
+                              <FileText size={14} className="text-accent" />
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className={TD}>
+                          <span className="whitespace-nowrap text-[11px] text-muted-foreground">
                             {formatDate(peca.atualizadoEm)}
                           </span>
                         </TableCell>
@@ -373,7 +665,7 @@ export default function PecasPage() {
         onOpenChange={setExportOpen}
         moduleName="pecas"
         moduleTitle="Peças"
-        pdfSubtitle="Relatório de Estoque de Peças"
+        pdfSubtitle="Relatório de Peças"
         columns={EXPORT_COLUMNS}
         allData={allExport}
         filteredData={filteredExport}
@@ -388,6 +680,22 @@ export default function PecasPage() {
         mockFileColumns={MOCK_FILE_COLUMNS}
         mockPreviewData={MOCK_PREVIEW_DATA}
       />
+
+      {/* Column filter dropdown — fixed position, outside table stacking context */}
+      <AnimatePresence>
+        {openFilter && (
+          <ColumnFilterDropdown
+            key={openFilter.key}
+            columnKey={openFilter.key}
+            columnLabel={openFilter.label}
+            values={openFilterValues}
+            selected={columnFilters[openFilter.key] ?? new Set()}
+            onChange={handleFilterChange}
+            onClose={() => setOpenFilter(null)}
+            anchorRect={openFilter.rect}
+          />
+        )}
+      </AnimatePresence>
     </div>
     </PermissionGate>
   )

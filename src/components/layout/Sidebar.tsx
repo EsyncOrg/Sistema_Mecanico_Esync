@@ -19,6 +19,7 @@ import {
   Workflow,
   Boxes,
   Brain,
+  Cpu,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -46,6 +47,7 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   Workflow,
   Boxes,
   Brain,
+  Cpu,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
@@ -55,6 +57,7 @@ const hrefToModule: Record<string, ModuleId> = {
   '/conjuntos':      'conjuntos',
   '/corte':          'corte',
   '/dobra':          'dobra',
+  '/maquinas':       'maquinas',
   '/pecas':          'pecas',
   '/retalhos':       'retalhos',
   '/programas':      'programas',
@@ -247,7 +250,7 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
   const toggle = useCallback(() => setIsCollapsed((v) => !v), [])
-  const { canView, currentCargo } = useAuth()
+  const { canView, currentCargo, logout } = useAuth()
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, toggle }}>
@@ -357,6 +360,7 @@ export function Sidebar() {
             style={{ borderTop: '1px solid var(--sidebar-border-color)' }}
           >
             <motion.div
+              onClick={logout}
               className={cn(
                 'flex cursor-pointer items-center gap-3 rounded-xl p-2',
                 isCollapsed && 'justify-center'

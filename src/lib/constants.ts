@@ -19,7 +19,7 @@ export const NAV_ITEMS = [
     icon: 'Workflow',
   },
   {
-    label: 'Conjuntos',
+    label: 'Produtos',
     href: '/conjuntos',
     icon: 'Boxes',
   },
@@ -32,6 +32,11 @@ export const NAV_ITEMS = [
     label: 'Dobra',
     href: '/dobra',
     icon: 'FoldVertical',
+  },
+  {
+    label: 'Máquinas',
+    href: '/maquinas',
+    icon: 'Cpu',
   },
   {
     label: 'Peças',

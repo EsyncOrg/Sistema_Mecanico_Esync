@@ -31,6 +31,7 @@ import {
   Cell,
 } from 'recharts'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { ExportModal } from '@/components/shared/ExportModal'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEstoque } from '@/contexts/EstoqueContext'
@@ -41,6 +42,22 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/utils'
 import type { StatusEstoque } from '@/types/estoque'
+
+// ─── Export config ────────────────────────────────────────────────────────────
+
+const EXPORT_COLUMNS = [
+  { key: 'codigoPeca',       label: 'Código'          },
+  { key: 'descricao',        label: 'Descrição'       },
+  { key: 'material',         label: 'Material'        },
+  { key: 'espessura',        label: 'Espessura (mm)'  },
+  { key: 'quantidade',       label: 'Quantidade'      },
+  { key: 'quantidadeMinima', label: 'Qtd. Mínima'     },
+  { key: 'unidade',          label: 'Unidade'         },
+  { key: 'localizacao',      label: 'Localização'     },
+  { key: 'status',           label: 'Status'          },
+  { key: 'origemPrograma',   label: 'Origem'          },
+  { key: 'ultimaEntrada',    label: 'Última Entrada'  },
+]
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -189,6 +206,7 @@ export default function EstoquePage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusEstoque | 'todos'>('todos')
   const [activeTab, setActiveTab] = useState<TabView>('inventario')
+  const [exportOpen, setExportOpen] = useState(false)
 
   // ── Filters ────────────────────────────────────────────────────────────────
 
@@ -239,6 +257,27 @@ export default function EstoquePage() {
     { name: 'Crítico',       value: estoque.filter((e) => e.status === 'critico').length,       color: '#ef4444' },
   ].filter((d) => d.value > 0), [estoque])
 
+  // ── Export data ────────────────────────────────────────────────────────────
+
+  const toExportRow = (item: typeof estoque[0]): Record<string, unknown> => ({
+    codigoPeca:       item.codigoPeca,
+    descricao:        item.descricao,
+    material:         item.material,
+    espessura:        item.espessura,
+    quantidade:       item.quantidade,
+    quantidadeMinima: item.quantidadeMinima,
+    unidade:          item.unidade,
+    localizacao:      item.localizacao,
+    status:           STATUS_CFG[item.status]?.label ?? item.status,
+    origemPrograma:   item.origemPrograma,
+    ultimaEntrada:    item.ultimaEntrada instanceof Date
+                        ? item.ultimaEntrada.toLocaleDateString('pt-BR')
+                        : String(item.ultimaEntrada),
+  })
+
+  const allExport      = estoque.map(toExportRow)
+  const filteredExport = filtered.map(toExportRow)
+
   const TABS = [
     { id: 'inventario' as TabView, label: 'Inventário',   icon: ListChecks },
     { id: 'movimentos' as TabView, label: 'Movimentos',   icon: ArrowUpCircle },
@@ -254,7 +293,7 @@ export default function EstoquePage() {
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Estoque' }]}
         actions={
           canEdit('estoque') ? (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
               <Download size={14} /> Exportar
             </Button>
           ) : undefined
@@ -681,6 +720,18 @@ export default function EstoquePage() {
         </motion.div>
       )}
     </div>
+
+      <ExportModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        moduleName="estoque"
+        moduleTitle="Estoque"
+        pdfSubtitle="Relatório de Inventário de Estoque"
+        columns={EXPORT_COLUMNS}
+        allData={allExport}
+        filteredData={filteredExport}
+        selectedData={[]}
+      />
     </PermissionGate>
   )
 }

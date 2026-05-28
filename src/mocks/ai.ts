@@ -100,7 +100,7 @@ export const mockAIInsights: AIInsight[] = [
     description: 'BASE-EST-001 (12 un.) e CANTEL-001 (5 un.) com mais de 90 dias de permanência no estoque sem demanda registrada.',
     severity: 'info',
     category: 'estoque',
-    recommendation: 'Revisar curva de demanda histórica. Verificar se estes itens estão associados a projetos suspensos. Avaliar devolução ou reutilização em outros conjuntos.',
+    recommendation: 'Revisar curva de demanda histórica. Verificar se estes itens estão associados a projetos suspensos. Avaliar devolução ou reutilização em outros produtos.',
     impact: 'Capital imobilizado estimado: R$ 1.240',
     confidence: 83,
     detectedAt: new Date(Date.now() - 1000 * 60 * 480),
@@ -145,7 +145,7 @@ export const mockAIActivities: AIActivityItem[] = [
   { id: 'a-007', message: 'Eficiência de OS:1508 abaixo da média histórica.',                  type: 'warning',    timestamp: new Date(Date.now() - 1000*900)  },
   { id: 'a-008', message: 'Carlos Mendes: melhor eficiência individual do mês.',               type: 'success',    timestamp: new Date(Date.now() - 1000*1200) },
   { id: 'a-009', message: 'Solda operando 45% abaixo da capacidade — oportunidade.',           type: 'suggestion', timestamp: new Date(Date.now() - 1000*1800) },
-  { id: 'a-010', message: 'Revisão automática de conjuntos PAINEL-800 e EST-L04 concluída.', type: 'success',    timestamp: new Date(Date.now() - 1000*2400) },
+  { id: 'a-010', message: 'Revisão automática de produtos PAINEL-800 e EST-L04 concluída.', type: 'success',    timestamp: new Date(Date.now() - 1000*2400) },
 ]
 
 // ─── Initial chat messages ────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ Estou conectada aos dados de produção e pronta para analisar:
 - **Estoque:** níveis críticos, excessos, tendências
 - **OS:** desempenho, gargalos, tempo médio
 - **Operadores:** eficiência líquida e comparativos
-- **Conjuntos:** análise de estrutura e otimização
+- **Produtos:** análise de estrutura e otimização
 
 Como posso ajudar sua operação hoje?`,
     timestamp: new Date(Date.now() - 1000 * 60 * 5),

@@ -6,6 +6,7 @@ export type ModuleId =
   | 'corte'
   | 'dobra'
   | 'solda'
+  | 'maquinas'
   | 'pecas'
   | 'retalhos'
   | 'programas'
@@ -35,10 +36,11 @@ export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'dashboard',     label: 'Dashboard'      },
   { id: 'desenvolvimento',label: 'Desenvolvimento' },
   { id: 'programacao',   label: 'Programação'    },
-  { id: 'conjuntos',     label: 'Conjuntos'      },
+  { id: 'conjuntos',     label: 'Produtos'       },
   { id: 'corte',         label: 'Corte'          },
   { id: 'dobra',         label: 'Dobra'          },
   { id: 'solda',         label: 'Solda'          },
+  { id: 'maquinas',      label: 'Máquinas'       },
   { id: 'pecas',         label: 'Peças'          },
   { id: 'retalhos',      label: 'Retalhos'       },
   { id: 'programas',     label: 'Programas'      },

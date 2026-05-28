@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Zap, Lock, User, ArrowRight, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -313,8 +314,10 @@ function Particles() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login, isAuthenticated } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loadingText, setLoadingText] = useState('Autenticando')
@@ -345,11 +348,22 @@ export default function LoginPage() {
     return () => clearInterval(id)
   }, [isLoading])
 
+  useEffect(() => {
+    if (isAuthenticated) router.replace('/dashboard')
+  }, [isAuthenticated, router])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setLoginError('')
     setIsLoading(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    router.push('/dashboard')
+    await new Promise((r) => setTimeout(r, 1500))
+    const result = await login({ email: username, password })
+    if (result.success) {
+      router.replace('/dashboard')
+    } else {
+      setIsLoading(false)
+      setLoginError(result.error ?? 'Credenciais inválidas')
+    }
   }
 
   return (
@@ -606,6 +620,17 @@ export default function LoginPage() {
                   </button>
                 </div>
               </motion.div>
+
+              {/* Error message */}
+              {loginError && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400 text-center"
+                >
+                  {loginError}
+                </motion.p>
+              )}
 
               {/* Submit */}
               <motion.div
