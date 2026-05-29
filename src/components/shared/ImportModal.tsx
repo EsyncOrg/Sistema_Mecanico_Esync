@@ -36,6 +36,7 @@ import { parseFile } from '@/lib/import-export/parser'
 import { validateRows, buildAutoMapping } from '@/lib/import-export/validator'
 import { downloadTemplateXLSX, downloadTemplateCSV } from '@/lib/import-export/template'
 import { getAliasesForModule } from '@/lib/import-export/modules'
+import { ImportPasswordModal } from '@/components/shared/ImportPasswordModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,7 @@ export function ImportModal({
   const [importCount, setImportCount]   = useState(0)
   const [errors, setErrors]             = useState<ImportError[]>([])
   const [showHistory, setShowHistory]   = useState(false)
+  const [pwOpen, setPwOpen]             = useState(false)
 
   // Real parsed data (populated after file drop)
   const [realColumns, setRealColumns]         = useState<string[] | null>(null)
@@ -317,6 +319,7 @@ export function ImportModal({
   const isLocked = step === 'processing'
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent size="xl" hideClose={isLocked}>
         <DialogHeader>
@@ -830,7 +833,7 @@ export function ImportModal({
               <Button
                 variant="accent"
                 size="sm"
-                onClick={startProcessing}
+                onClick={() => setPwOpen(true)}
                 disabled={systemFields
                   .filter((sf) => sf.required)
                   .some((sf) => !mapping[sf.key])}
@@ -849,5 +852,15 @@ export function ImportModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ImportPasswordModal
+      open={pwOpen}
+      onOpenChange={setPwOpen}
+      moduleName={moduleName}
+      moduleTitle={moduleTitle}
+      filename={file?.name ?? ''}
+      onConfirmed={() => { setPwOpen(false); startProcessing() }}
+    />
+    </>
   )
 }

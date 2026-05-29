@@ -43,9 +43,10 @@ interface AuthContextValue {
   currentCargoId:    string
   setCurrentCargoId: (id: string) => void
   currentCargo:      Cargo | undefined
-  canView:  (module: ModuleId) => boolean
-  canEdit:  (module: ModuleId) => boolean
-  isAdmin:  () => boolean
+  canView:   (module: ModuleId) => boolean
+  canExport: (module: ModuleId) => boolean
+  canEdit:   (module: ModuleId) => boolean
+  isAdmin:   () => boolean
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -58,6 +59,7 @@ const AuthContext = createContext<AuthContextValue>({
   setCurrentCargoId: () => {},
   currentCargo:      undefined,
   canView:           () => false,
+  canExport:         () => false,
   canEdit:           () => false,
   isAdmin:           () => false,
 })
@@ -137,6 +139,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [currentCargo]
   )
 
+  // canExport = canView today; decoupled so future roles can have view-without-export
+  const canExport = useCallback(
+    (module: ModuleId) =>
+      (currentCargo?.isAdmin ?? false) || (currentCargo?.permissoes[module]?.visualizacao ?? false),
+    [currentCargo]
+  )
+
   const canEdit = useCallback(
     (module: ModuleId) =>
       (currentCargo?.isAdmin ?? false) || (currentCargo?.permissoes[module]?.edicao ?? false),
@@ -157,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentCargoId,
         currentCargo,
         canView,
+        canExport,
         canEdit,
         isAdmin,
       }}

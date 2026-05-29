@@ -201,7 +201,7 @@ function MovimentoItem({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EstoquePage() {
-  const { canEdit } = useAuth()
+  const { canView } = useAuth()
   const { estoque, movimentos } = useEstoque()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusEstoque | 'todos'>('todos')
@@ -292,7 +292,7 @@ export default function EstoquePage() {
         subtitle={`${totalSkus} SKUs cadastrados · ${totalPecas.toLocaleString('pt-BR')} peças em inventário`}
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Estoque' }]}
         actions={
-          canEdit('estoque') ? (
+          canView('estoque') ? (
             <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
               <Download size={14} /> Exportar
             </Button>

@@ -61,7 +61,7 @@ const MOCK_PREVIEW_DATA = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RetalhosPage() {
-  const { canEdit } = useAuth()
+  const { canEdit, canView } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusRetalho | 'todos'>('todos')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -125,17 +125,21 @@ export default function RetalhosPage() {
         subtitle={`${mockRetalhos.length} retalhos cadastrados · ${pesoTotal.toFixed(1)}kg disponíveis`}
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Retalhos' }]}
         actions={
-          canEdit('retalhos') ? (
+          canView('retalhos') ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Upload size={14} /> Importar
-              </Button>
+              {canEdit('retalhos') && (
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload size={14} /> Importar
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
                 <Download size={14} /> Exportar
               </Button>
-              <Button variant="accent" size="sm">
-                <Plus size={14} /> Novo Retalho
-              </Button>
+              {canEdit('retalhos') && (
+                <Button variant="accent" size="sm">
+                  <Plus size={14} /> Novo Retalho
+                </Button>
+              )}
             </>
           ) : undefined
         }
@@ -194,7 +198,7 @@ export default function RetalhosPage() {
 
       {/* Bulk toolbar */}
       <AnimatePresence>
-        {someSelected && canEdit('retalhos') && (
+        {someSelected && canView('retalhos') && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -209,9 +213,11 @@ export default function RetalhosPage() {
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setExportOpen(true)}>
                 <Download size={12} /> Exportar selecionados
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
-                <Trash2 size={12} /> Excluir
-              </Button>
+              {canEdit('retalhos') && (
+                <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
+                  <Trash2 size={12} /> Excluir
+                </Button>
+              )}
               <button onClick={clearSelection} className="ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors">
                 <X size={14} />
               </button>

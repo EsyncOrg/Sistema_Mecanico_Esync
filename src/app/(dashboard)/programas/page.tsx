@@ -63,7 +63,7 @@ const MOCK_PREVIEW_DATA = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProgramasPage() {
-  const { canEdit } = useAuth()
+  const { canEdit, canView } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusPrograma | 'todos'>('todos')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -126,17 +126,21 @@ export default function ProgramasPage() {
         subtitle={`${ativos} programas ativos · ${totalExecucoes.toLocaleString('pt-BR')} execuções no total`}
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Programas' }]}
         actions={
-          canEdit('programas') ? (
+          canView('programas') ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Upload size={14} /> Importar
-              </Button>
+              {canEdit('programas') && (
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload size={14} /> Importar
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
                 <Download size={14} /> Exportar
               </Button>
-              <Button variant="accent" size="sm">
-                <Plus size={14} /> Novo Programa
-              </Button>
+              {canEdit('programas') && (
+                <Button variant="accent" size="sm">
+                  <Plus size={14} /> Novo Programa
+                </Button>
+              )}
             </>
           ) : undefined
         }
@@ -195,7 +199,7 @@ export default function ProgramasPage() {
 
       {/* Bulk toolbar */}
       <AnimatePresence>
-        {someSelected && canEdit('programas') && (
+        {someSelected && canView('programas') && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,9 +214,11 @@ export default function ProgramasPage() {
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setExportOpen(true)}>
                 <Download size={12} /> Exportar selecionados
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
-                <Trash2 size={12} /> Excluir
-              </Button>
+              {canEdit('programas') && (
+                <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
+                  <Trash2 size={12} /> Excluir
+                </Button>
+              )}
               <button onClick={clearSelection} className="ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors">
                 <X size={14} />
               </button>

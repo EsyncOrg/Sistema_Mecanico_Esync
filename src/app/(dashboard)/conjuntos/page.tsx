@@ -34,11 +34,13 @@ import {
   AlertCircle,
   Info,
   Star,
+  QrCode,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts'
+import { ProductQRModal }   from '@/components/qr/ProductQRModal'
 import { PageHeader }       from '@/components/shared/PageHeader'
 import { PermissionGate }   from '@/components/shared/PermissionGate'
 import { useAuth }          from '@/contexts/AuthContext'
@@ -191,13 +193,14 @@ function SetorToggleBtn({
 // ─── Assembly Card ────────────────────────────────────────────────────────────
 
 function ConjuntoCard({
-  conjunto, index, onVerEstrutura, onSimular, onExcluir, canEdit,
+  conjunto, index, onVerEstrutura, onSimular, onExcluir, onQR, canEdit,
 }: {
   conjunto: Conjunto
   index: number
   onVerEstrutura: (c: Conjunto) => void
   onSimular: (c: Conjunto) => void
   onExcluir: (id: string) => void
+  onQR: (c: Conjunto) => void
   canEdit: boolean
 }) {
   const totalPecas = conjunto.pecas.reduce((s, p) => s + p.quantidade, 0)
@@ -282,6 +285,13 @@ function ConjuntoCard({
             <FlaskConical size={12} />
             Simular
           </Button>
+          <button
+            onClick={() => onQR(conjunto)}
+            title="Gerar QR Code"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <QrCode size={12} />
+          </button>
           {canEdit && (
             <button
               onClick={() => onExcluir(conjunto.id)}
@@ -634,6 +644,10 @@ export default function ConjuntosPage() {
   })
   const [expandedFormTree, setExpandedFormTree] = useState(true)
 
+  // QR modal
+  const [qrModalOpen, setQrModalOpen]     = useState(false)
+  const [qrConjunto,  setQrConjunto]      = useState<Conjunto | null>(null)
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const selectedConjunto = useMemo(
@@ -717,6 +731,11 @@ export default function ConjuntosPage() {
     excluirConjunto(id)
     toast('warning', 'Produto removido')
   }, [excluirConjunto])
+
+  const handleQR = useCallback((c: Conjunto) => {
+    setQrConjunto(c)
+    setQrModalOpen(true)
+  }, [])
 
   const handleExecutarSimulacao = useCallback(() => {
     if (!simConjunto || simQtd <= 0) return
@@ -1243,6 +1262,7 @@ export default function ConjuntosPage() {
                       onVerEstrutura={handleVerEstrutura}
                       onSimular={handleSimularFromCard}
                       onExcluir={handleExcluir}
+                      onQR={handleQR}
                       canEdit={canEdit('conjuntos')}
                     />
                   ))}
@@ -1722,6 +1742,12 @@ export default function ConjuntosPage() {
 
       </AnimatePresence>
     </div>
+
+    <ProductQRModal
+      open={qrModalOpen}
+      onOpenChange={setQrModalOpen}
+      conjunto={qrConjunto}
+    />
     </PermissionGate>
   )
 }

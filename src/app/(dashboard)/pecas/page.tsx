@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, Filter, Upload, Download, Package,
-  Trash2, X, FileSpreadsheet, FileBox, FileText, ListFilter,
+  Trash2, X, FileSpreadsheet, FileBox, FileText, ListFilter, Pencil,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -12,6 +12,11 @@ import { ExportModal } from '@/components/shared/ExportModal'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { ColumnFilterDropdown } from '@/components/shared/ColumnFilterDropdown'
+import { NovaPecaModal } from '@/components/shared/NovaPecaModal'
+import { EditarPecaModal } from '@/components/shared/EditarPecaModal'
+import { SecurityConfirmModal } from '@/components/shared/SecurityConfirmModal'
+import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal'
+import { logActionAudit } from '@/lib/security/importSecurity'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { mockPecas } from '@/mocks'
 import { formatDate } from '@/lib/utils'
+import { formatEspessura } from '@/lib/pecas/bitolaMap'
 import type { Peca } from '@/types'
 
 // ─── Export config ────────────────────────────────────────────────────────────
@@ -111,34 +117,38 @@ const MOCK_PREVIEW_DATA = [
 
 // Shared compact classes for the dense table
 const TH = 'px-2 py-2 text-[11px] font-semibold whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top'
+const TD = 'px-2 py-1.5 align-middle'
 
 // ─── Column filter helpers ─────────────────────────────────────────────────────
 
-const COLUMN_DEFS = [
-  { key: 'codigo',         label: 'Código'       },
-  { key: 'espessura',      label: 'Esp. mm'      },
-  { key: 'descricao',      label: 'Descrição'    },
-  { key: 'grupo',          label: 'Grupo'        },
-  { key: 'familia',        label: 'Família'      },
-  { key: 'codigoSistema',  label: 'Cód. Sistema' },
-  { key: 'areaPeca',       label: 'Área mm²'     },
-  { key: 'desperdicio',    label: 'Desp. m²'     },
-  { key: 'percFabricacao', label: '% Fab.'       },
-  { key: 'percPintura',    label: '% Pint.'      },
-  { key: 'peso',           label: 'Peso kg'      },
-  { key: 'cor',            label: 'COR'          },
-  { key: 'arquivo3d',      label: '3D'           },
-  { key: 'planoDobra',     label: 'Plano'        },
-  { key: 'atualizadoEm',   label: 'Atualizado'   },
+const COLUMN_DEFS: { key: string; label: string; align: 'center' | 'left' }[] = [
+  { key: 'codigo',         label: 'Código',       align: 'center' },
+  { key: 'espessura',      label: 'Esp. mm',      align: 'center' },
+  { key: 'descricao',      label: 'Descrição',    align: 'left'   },
+  { key: 'grupo',          label: 'Grupo',        align: 'center' },
+  { key: 'familia',        label: 'Família',      align: 'center' },
+  { key: 'codigoSistema',  label: 'Cód. Sistema', align: 'center' },
+  { key: 'areaPeca',       label: 'Área mm²',     align: 'center' },
+  { key: 'desperdicio',    label: 'Desp. m²',     align: 'center' },
+  { key: 'percFabricacao', label: '% Fab.',       align: 'center' },
+  { key: 'percPintura',    label: '% Pint.',      align: 'center' },
+  { key: 'peso',           label: 'Peso kg',      align: 'center' },
+  { key: 'cor',            label: 'COR',          align: 'center' },
+  { key: 'arquivo3d',      label: '3D',           align: 'center' },
+  { key: 'planoDobra',     label: 'Dobra',        align: 'center' },
+  { key: 'atualizadoEm',   label: 'Atualizado',   align: 'center' },
 ]
 
-const NUMERIC_COLS = new Set(['espessura', 'areaPeca', 'desperdicio', 'percFabricacao', 'percPintura', 'peso'])
+function colAlign(key: string): string {
+  return COLUMN_DEFS.find((c) => c.key === key)?.align === 'left' ? 'text-left' : 'text-center'
+}
+
+const NUMERIC_COLS = new Set(['areaPeca', 'desperdicio', 'percFabricacao', 'percPintura', 'peso'])
 
 function getPecaFilterValue(peca: Peca, key: string): string {
   switch (key) {
     case 'codigo':         return peca.codigo
-    case 'espessura':      return String(peca.espessura)
+    case 'espessura':      return formatEspessura(peca.espessura)
     case 'descricao':      return peca.descricao
     case 'grupo':          return peca.grupo
     case 'familia':        return peca.familia
@@ -157,6 +167,12 @@ function getPecaFilterValue(peca: Peca, key: string): string {
 }
 
 function sortFilterValues(vals: string[], key: string): string[] {
+  if (key === 'espessura') {
+    // Values are formatted pt-BR strings like "1,9 mm" — parse to float for correct order
+    return [...vals].sort((a, b) =>
+      parseFloat(a.replace(',', '.')) - parseFloat(b.replace(',', '.'))
+    )
+  }
   if (NUMERIC_COLS.has(key)) {
     return [...vals].sort((a, b) => parseFloat(a) - parseFloat(b))
   }
@@ -171,21 +187,28 @@ type OpenFilter  = { key: string; label: string; rect: DOMRect }
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PecasPage() {
-  const { canEdit } = useAuth()
-  const [search, setSearch] = useState('')
+  const { canEdit, canView } = useAuth()
+  const [pecas, setPecas]           = useState<Peca[]>(mockPecas)
+  const [search, setSearch]         = useState('')
   const [grupoFilter, setGrupoFilter] = useState<string>('todos')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected]     = useState<Set<string>>(new Set())
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [novaPecaOpen, setNovaPecaOpen]     = useState(false)
+  const [editingPeca, setEditingPeca]       = useState<Peca | null>(null)
+  const [pendingAction, setPendingAction]   = useState<'edit' | 'delete' | null>(null)
+  const [securityOpen, setSecurityOpen]     = useState(false)
+  const [editOpen, setEditOpen]             = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [columnFilters, setColumnFilters] = useState<FilterState>({})
   const [openFilter, setOpenFilter] = useState<OpenFilter | null>(null)
 
-  const grupos = ['todos', ...Array.from(new Set(mockPecas.map((p) => p.grupo))).sort()]
+  const grupos = ['todos', ...Array.from(new Set(pecas.map((p) => p.grupo))).sort()]
 
   // ─── Filtered rows (text search + grupo chip + column filters) ───────────────
 
   const filtered = useMemo(() => {
-    return mockPecas.filter((p) => {
+    return pecas.filter((p) => {
       const q = search.toLowerCase()
       const matchSearch =
         p.codigo.toLowerCase().includes(q) ||
@@ -202,7 +225,7 @@ export default function PecasPage() {
       }
       return true
     })
-  }, [search, grupoFilter, columnFilters])
+  }, [pecas, search, grupoFilter, columnFilters])
 
   // ─── Cascading values for the open column dropdown ───────────────────────────
 
@@ -210,7 +233,7 @@ export default function PecasPage() {
 
   const openFilterValues = useMemo(() => {
     if (!openFilterKey) return []
-    const cascade = mockPecas.filter((p) => {
+    const cascade = pecas.filter((p) => {
       const q = search.toLowerCase()
       const matchSearch =
         p.codigo.toLowerCase().includes(q) ||
@@ -229,7 +252,7 @@ export default function PecasPage() {
     })
     const uniq = new Set(cascade.map((p) => getPecaFilterValue(p, openFilterKey)))
     return sortFilterValues(Array.from(uniq), openFilterKey)
-  }, [openFilterKey, search, grupoFilter, columnFilters])
+  }, [pecas, openFilterKey, search, grupoFilter, columnFilters])
 
   const activeColFilterCount = useMemo(
     () => Object.values(columnFilters).filter((v) => v.size > 0).length,
@@ -262,24 +285,42 @@ export default function PecasPage() {
   // ─── renderHeader ─────────────────────────────────────────────────────────────
 
   function renderHeader(key: string, extraClass = '') {
-    const def    = COLUMN_DEFS.find((c) => c.key === key)!
-    const label  = def.label
-    const active = hasFilter(key)
+    const def      = COLUMN_DEFS.find((c) => c.key === key)!
+    const label    = def.label
+    const active   = hasFilter(key)
+    const centered = def.align !== 'left'
     return (
-      <TableHead className={`${TH} ${extraClass}`}>
+      <TableHead className={`${TH} ${extraClass} ${centered ? 'text-center' : 'text-left'}`}>
         <button
           onClick={(e) => handleHeaderClick(key, label, e)}
-          className={`group inline-flex items-center gap-1 whitespace-nowrap transition-colors ${
-            active ? 'text-primary' : 'hover:text-foreground'
-          }`}
+          className={`group relative inline-flex w-full items-center whitespace-nowrap transition-colors ${
+            centered ? 'justify-center' : 'justify-start gap-1'
+          } ${active ? 'text-primary' : 'hover:text-foreground'}`}
         >
-          {label}
-          {active ? (
-            <span className="inline-flex items-center rounded bg-primary/15 px-1 py-0.5 text-[9px] font-bold leading-none text-primary">
-              {columnFilters[key]?.size}
+          <span>{label}</span>
+
+          {centered ? (
+            // Absolutely positioned — never shifts the label off-center
+            <span className="absolute right-0 top-1/2 -translate-y-1/2">
+              {active ? (
+                <span className="inline-flex items-center rounded bg-primary/15 px-1 py-0.5 text-[9px] font-bold leading-none text-primary">
+                  {columnFilters[key]?.size}
+                </span>
+              ) : (
+                <ListFilter size={8} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-40" />
+              )}
             </span>
           ) : (
-            <ListFilter size={8} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-40" />
+            // Left-aligned: keep indicator in normal flow
+            <>
+              {active ? (
+                <span className="inline-flex items-center rounded bg-primary/15 px-1 py-0.5 text-[9px] font-bold leading-none text-primary">
+                  {columnFilters[key]?.size}
+                </span>
+              ) : (
+                <ListFilter size={8} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-40" />
+              )}
+            </>
           )}
         </button>
       </TableHead>
@@ -288,9 +329,9 @@ export default function PecasPage() {
 
   // ─── Selection helpers ────────────────────────────────────────────────────────
 
-  const totalPecas    = mockPecas.length
-  const com3d         = mockPecas.filter((p) => p.arquivo3d !== '').length
-  const comPlanoDobra = mockPecas.filter((p) => p.planoDobra !== '').length
+  const totalPecas    = pecas.length
+  const sem3d         = pecas.filter((p) => !p.arquivo3d).length
+  const semPlanoDobra = pecas.filter((p) => !p.planoDobra).length
 
   const allFilteredIds = filtered.map((p) => p.id)
   const allSelected    = allFilteredIds.length > 0 && allFilteredIds.every((id) => selected.has(id))
@@ -309,6 +350,52 @@ export default function PecasPage() {
   }
 
   function clearSelection() { setSelected(new Set()) }
+
+  // ─── Edit / Delete security flow ─────────────────────────────────────────────
+
+  function handleEditClick() {
+    const peca = pecas.find((p) => selected.has(p.id))
+    if (!peca) return
+    setEditingPeca(peca)
+    setPendingAction('edit')
+    setSecurityOpen(true)
+  }
+
+  function handleDeleteClick() {
+    setPendingAction('delete')
+    setSecurityOpen(true)
+  }
+
+  function handleSecurityConfirmed() {
+    if (pendingAction === 'edit') {
+      setEditOpen(true)
+    } else if (pendingAction === 'delete') {
+      setDeleteConfirmOpen(true)
+    }
+    setPendingAction(null)
+  }
+
+  function handleEditSave(updated: Peca) {
+    setPecas((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+    setSelected(new Set())
+  }
+
+  function handleDeleteConfirmed() {
+    const deletedIds  = Array.from(selected)
+    const deletedCods = pecas.filter((p) => selected.has(p.id)).map((p) => p.codigo)
+    logActionAudit({
+      userId:        'user-001',
+      userName:      'Usuário',
+      moduleName:    'pecas',
+      actionType:    'delete',
+      targetIds:     deletedIds,
+      targetSummary: `${deletedIds.length} peça(s): ${deletedCods.slice(0, 3).join(', ')}${deletedIds.length > 3 ? '…' : ''}`,
+      status:        'success',
+    })
+    setPecas((prev) => prev.filter((p) => !selected.has(p.id)))
+    setSelected(new Set())
+    setDeleteConfirmOpen(false)
+  }
 
   // ─── Export helpers ───────────────────────────────────────────────────────────
 
@@ -330,9 +417,9 @@ export default function PecasPage() {
     atualizadoEm:   formatDate(p.atualizadoEm),
   })
 
-  const allExport      = mockPecas.map(toExportRow)
+  const allExport      = pecas.map(toExportRow)
   const filteredExport = filtered.map(toExportRow)
-  const selectedExport = mockPecas.filter((p) => selected.has(p.id)).map(toExportRow)
+  const selectedExport = pecas.filter((p) => selected.has(p.id)).map(toExportRow)
 
   // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -341,20 +428,24 @@ export default function PecasPage() {
     <div>
       <PageHeader
         title="Peças"
-        subtitle={`${totalPecas} peças cadastradas · ${com3d} com modelo 3D · ${comPlanoDobra} com plano de dobra`}
+        subtitle={`${totalPecas} peças cadastradas · ${sem3d} sem modelo 3D · ${semPlanoDobra} sem plano de dobra`}
         breadcrumbs={[{ label: 'Esync', href: '/dashboard' }, { label: 'Peças' }]}
         actions={
-          canEdit('pecas') ? (
+          canView('pecas') ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Upload size={14} /> Importar
-              </Button>
+              {canEdit('pecas') && (
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload size={14} /> Importar
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
                 <Download size={14} /> Exportar
               </Button>
-              <Button variant="accent" size="sm">
-                <Plus size={14} /> Nova Peça
-              </Button>
+              {canEdit('pecas') && (
+                <Button variant="accent" size="sm" onClick={() => setNovaPecaOpen(true)}>
+                  <Plus size={14} /> Nova Peça
+                </Button>
+              )}
             </>
           ) : undefined
         }
@@ -364,8 +455,8 @@ export default function PecasPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         {[
           { label: 'Total de Peças',  value: totalPecas,    color: 'text-primary'     },
-          { label: 'Com Modelo 3D',   value: com3d,         color: 'text-warning'     },
-          { label: 'Com Plano Dobra', value: comPlanoDobra, color: 'text-destructive' },
+          { label: 'Sem Modelo 3D',   value: sem3d,         color: 'text-warning'     },
+          { label: 'Sem Plano de Dobra', value: semPlanoDobra, color: 'text-destructive' },
         ].map((item, i) => (
           <motion.div
             key={i}
@@ -455,7 +546,7 @@ export default function PecasPage() {
 
       {/* Bulk action toolbar */}
       <AnimatePresence>
-        {someSelected && canEdit('pecas') && (
+        {someSelected && canView('pecas') && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -475,9 +566,26 @@ export default function PecasPage() {
               >
                 <Download size={12} /> Exportar selecionadas
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
-                <Trash2 size={12} /> Excluir
-              </Button>
+              {canEdit('pecas') && selected.size === 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs text-primary hover:text-primary"
+                  onClick={handleEditClick}
+                >
+                  <Pencil size={12} /> Editar
+                </Button>
+              )}
+              {canEdit('pecas') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs text-destructive hover:text-destructive"
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2 size={12} /> Excluir
+                </Button>
+              )}
               <button
                 onClick={clearSelection}
                 className="ml-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted"
@@ -501,7 +609,7 @@ export default function PecasPage() {
                 className="m-6"
                 action={
                   canEdit('pecas') ? (
-                    <Button variant="accent" size="sm">
+                    <Button variant="accent" size="sm" onClick={() => setNovaPecaOpen(true)}>
                       <Plus size={14} /> Adicionar Peça
                     </Button>
                   ) : undefined
@@ -560,71 +668,71 @@ export default function PecasPage() {
                           />
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('codigo')}`}>
                           <span className="whitespace-nowrap font-mono text-[11px] font-semibold text-primary">
                             {peca.codigo}
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
-                          <span className="whitespace-nowrap text-xs tabular-nums">{peca.espessura}</span>
+                        <TableCell className={`${TD} ${colAlign('espessura')}`}>
+                          <span className="whitespace-nowrap text-xs tabular-nums">{formatEspessura(peca.espessura)}</span>
                         </TableCell>
 
-                        <TableCell className={`${TD} min-w-[200px]`}>
+                        <TableCell className={`${TD} align-top min-w-[200px]`}>
                           <span className="text-xs font-medium leading-snug text-foreground">
                             {peca.descricao}
                           </span>
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('grupo')}`}>
                           <span className="whitespace-nowrap text-xs text-muted-foreground">{peca.grupo}</span>
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('familia')}`}>
                           <span className="whitespace-nowrap text-xs text-muted-foreground">{peca.familia}</span>
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('codigoSistema')}`}>
                           <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
                             {peca.codigoSistema || '—'}
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
+                        <TableCell className={`${TD} ${colAlign('areaPeca')}`}>
                           <span className="whitespace-nowrap text-xs tabular-nums">
                             {peca.areaPeca.toFixed(2)}
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
+                        <TableCell className={`${TD} ${colAlign('desperdicio')}`}>
                           <span className="whitespace-nowrap text-xs tabular-nums">
                             {peca.desperdicio.toFixed(4)}
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
+                        <TableCell className={`${TD} ${colAlign('percFabricacao')}`}>
                           <span className="whitespace-nowrap text-xs tabular-nums">
                             {peca.percFabricacao.toFixed(1)}%
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
+                        <TableCell className={`${TD} ${colAlign('percPintura')}`}>
                           <span className="whitespace-nowrap text-xs tabular-nums">
                             {peca.percPintura.toFixed(1)}%
                           </span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-right`}>
+                        <TableCell className={`${TD} ${colAlign('peso')}`}>
                           <span className="whitespace-nowrap text-xs tabular-nums">
                             {peca.peso.toFixed(2)}
                           </span>
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('cor')}`}>
                           <span className="whitespace-nowrap text-xs">{peca.cor}</span>
                         </TableCell>
 
-                        <TableCell className={`${TD} text-center`}>
+                        <TableCell className={`${TD} ${colAlign('arquivo3d')}`}>
                           {peca.arquivo3d ? (
                             <span title={peca.arquivo3d} className="inline-flex items-center justify-center">
                               <FileBox size={14} className="text-primary" />
@@ -634,7 +742,7 @@ export default function PecasPage() {
                           )}
                         </TableCell>
 
-                        <TableCell className={`${TD} text-center`}>
+                        <TableCell className={`${TD} ${colAlign('planoDobra')}`}>
                           {peca.planoDobra ? (
                             <span title={peca.planoDobra} className="inline-flex items-center justify-center">
                               <FileText size={14} className="text-accent" />
@@ -644,7 +752,7 @@ export default function PecasPage() {
                           )}
                         </TableCell>
 
-                        <TableCell className={TD}>
+                        <TableCell className={`${TD} ${colAlign('atualizadoEm')}`}>
                           <span className="whitespace-nowrap text-[11px] text-muted-foreground">
                             {formatDate(peca.atualizadoEm)}
                           </span>
@@ -679,6 +787,47 @@ export default function PecasPage() {
         systemFields={IMPORT_SYSTEM_FIELDS}
         mockFileColumns={MOCK_FILE_COLUMNS}
         mockPreviewData={MOCK_PREVIEW_DATA}
+      />
+      <NovaPecaModal
+        open={novaPecaOpen}
+        onOpenChange={setNovaPecaOpen}
+        existingPecas={pecas}
+        onSave={(peca) => setPecas((prev) => [peca, ...prev])}
+      />
+
+      {/* Security password gate — shared by edit and delete flows */}
+      <SecurityConfirmModal
+        open={securityOpen}
+        onOpenChange={setSecurityOpen}
+        variant={pendingAction === 'delete' ? 'destructive' : 'warning'}
+        title={pendingAction === 'delete' ? 'Confirmação de Segurança — Exclusão' : 'Confirmação de Segurança — Edição'}
+        description={
+          pendingAction === 'delete'
+            ? `Você está prestes a excluir ${selected.size} peça${selected.size !== 1 ? 's' : ''}. Esta operação é irreversível.`
+            : 'Edição de dados de engenharia requer confirmação de segurança.'
+        }
+        confirmLabel={pendingAction === 'delete' ? 'Confirmar Exclusão' : 'Confirmar Edição'}
+        contextInfo={
+          pendingAction === 'edit' && editingPeca
+            ? [{ label: 'Peça', value: editingPeca.codigo }]
+            : [{ label: 'Peças selecionadas', value: String(selected.size) }]
+        }
+        onConfirmed={handleSecurityConfirmed}
+      />
+
+      <EditarPecaModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        editingPeca={editingPeca}
+        existingPecas={pecas}
+        onSave={handleEditSave}
+      />
+
+      <DeleteConfirmModal
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        targetCodigos={pecas.filter((p) => selected.has(p.id)).map((p) => p.codigo)}
+        onConfirmed={handleDeleteConfirmed}
       />
 
       {/* Column filter dropdown — fixed position, outside table stacking context */}
