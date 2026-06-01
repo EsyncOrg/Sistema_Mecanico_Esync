@@ -33,6 +33,10 @@ function generateDots(count: number, r: number, cx = 400, cy = 400) {
 // ─── Mechanical Dial ──────────────────────────────────────────────────────────
 
 function MechanicalDial() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
   const majorTicks = generateTicks(36, 375, 360)
   const minorTicks = generateTicks(180, 375, 368)
   const orbitDots8 = generateDots(8, 245)

@@ -4,7 +4,7 @@ import React, { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   Scissors, FoldVertical, Flame, Paintbrush, Wrench,
-  Package, Clock, User, AlertCircle, CheckCircle2,
+  Package, Clock, AlertCircle, CheckCircle2,
   Zap, Layers, TrendingUp, ChevronRight, RotateCcw,
 } from 'lucide-react'
 import { mockConjuntos } from '@/mocks/conjuntos'
@@ -83,8 +83,9 @@ function NotFoundPage({ codigo }: { codigo: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ProdutoPage({ params }: { params: { codigo: string } }) {
-  const codigo   = decodeURIComponent(params.codigo)
+export default function ProdutoPage({ params }: { params: Promise<{ codigo: string }> }) {
+  const { codigo: rawCodigo } = React.use(params)
+  const codigo   = decodeURIComponent(rawCodigo)
   const conjunto = useMemo(
     () => mockConjuntos.find((c) => c.codigo === codigo),
     [codigo]

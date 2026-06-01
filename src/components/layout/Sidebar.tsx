@@ -20,6 +20,7 @@ import {
   Boxes,
   Brain,
   Cpu,
+  FileText,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -48,10 +49,12 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   Boxes,
   Brain,
   Cpu,
+  FileText,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
   '/dashboard':      'dashboard',
+  '/orcamentos':     'orcamentos',
   '/desenvolvimento':'desenvolvimento',
   '/programacao':    'programacao',
   '/conjuntos':      'conjuntos',

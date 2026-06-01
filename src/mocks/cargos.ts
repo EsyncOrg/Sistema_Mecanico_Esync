@@ -19,6 +19,7 @@ export const mockCargos: Cargo[] = [
     isAdmin: true,
     permissoes: buildMap({
       dashboard:      full(),
+      orcamentos:     full(),
       desenvolvimento:full(),
       programacao:    full(),
       conjuntos:      full(),
@@ -49,6 +50,7 @@ export const mockCargos: Cargo[] = [
       corte:          full(),
       dobra:          view(),
       estoque:        view(),
+      // orcamentos: none() — production operators don't access quotes
     } as Partial<Record<ModuleId, ModulePermission>>),
   },
   {
@@ -58,6 +60,7 @@ export const mockCargos: Cargo[] = [
     cor: '#10b981',
     permissoes: buildMap({
       dashboard:      view(),
+      orcamentos:     view(),
       desenvolvimento:view(),
       programacao:    full(),
       conjuntos:      full(),
@@ -76,6 +79,7 @@ export const mockCargos: Cargo[] = [
     cor: '#f59e0b',
     permissoes: buildMap({
       dashboard:      view(),
+      orcamentos:     view(),
       desenvolvimento:full(),
       programacao:    full(),
       conjuntos:      full(),
@@ -126,6 +130,7 @@ export const mockCargos: Cargo[] = [
     cor: '#6b7280',
     permissoes: buildMap({
       dashboard:    view(),
+      orcamentos:   full(),
       relatorios:   view(),
       configuracoes:full(),
     } as Partial<Record<ModuleId, ModulePermission>>),

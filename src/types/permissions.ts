@@ -1,5 +1,6 @@
 export type ModuleId =
   | 'dashboard'
+  | 'orcamentos'
   | 'desenvolvimento'
   | 'programacao'
   | 'conjuntos'
@@ -34,6 +35,7 @@ export interface Cargo {
 
 export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'dashboard',     label: 'Dashboard'      },
+  { id: 'orcamentos',    label: 'Orçamentos'     },
   { id: 'desenvolvimento',label: 'Desenvolvimento' },
   { id: 'programacao',   label: 'Programação'    },
   { id: 'conjuntos',     label: 'Produtos'       },

@@ -8,7 +8,8 @@ import { EstoqueProvider } from '@/contexts/EstoqueContext'
 import { DobraProvider } from '@/contexts/DobraContext'
 import { DesenvolvimentoProvider } from '@/contexts/DesenvolvimentoContext'
 import { ConjuntosProvider } from '@/contexts/ConjuntosContext'
-import { ProgramacaoProvider } from '@/contexts/ProgramacaoContext'
+import { ProgramacaoProvider }  from '@/contexts/ProgramacaoContext'
+import { OrcamentosProvider }   from '@/contexts/OrcamentosContext'
 import { Toaster } from '@/components/ui/toast'
 
 const geistSans = Geist({
@@ -49,8 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <DesenvolvimentoProvider>
                   <ConjuntosProvider>
                     <ProgramacaoProvider>
-                      {children}
-                      <Toaster />
+                      <OrcamentosProvider>
+                        {children}
+                        <Toaster />
+                      </OrcamentosProvider>
                     </ProgramacaoProvider>
                   </ConjuntosProvider>
                 </DesenvolvimentoProvider>

@@ -9,6 +9,11 @@ export const NAV_ITEMS = [
     icon: 'LayoutDashboard',
   },
   {
+    label: 'Orçamentos',
+    href: '/orcamentos',
+    icon: 'FileText',
+  },
+  {
     label: 'Desenvolvimento',
     href: '/desenvolvimento',
     icon: 'Lightbulb',
@@ -83,6 +88,13 @@ export const NAV_ITEMS = [
 ] as const
 
 export const STATUS_LABELS: Record<string, string> = {
+  // Orçamentos
+  em_elaboracao: 'Em Elaboração',
+  enviado:       'Enviado',
+  aprovado:      'Aprovado',
+  reprovado:     'Reprovado',
+  cancelado:     'Cancelado',
+  // General
   ativo: 'Ativo',
   inativo: 'Inativo',
   pendente: 'Pendente',
