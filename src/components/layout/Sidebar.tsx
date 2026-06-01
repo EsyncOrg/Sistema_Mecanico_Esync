@@ -21,6 +21,7 @@ import {
   Brain,
   Cpu,
   FileText,
+  Calculator,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -50,6 +51,7 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   Brain,
   Cpu,
   FileText,
+  Calculator,
 }
 
 const hrefToModule: Record<string, ModuleId> = {
@@ -66,6 +68,7 @@ const hrefToModule: Record<string, ModuleId> = {
   '/programas':      'programas',
   '/estoque':        'estoque',
   '/relatorios':     'relatorios',
+  '/custos':         'custos',
   '/esync-ia':       'esync_ia',
   '/usuarios':       'usuarios',
   '/configuracoes':  'configuracoes',

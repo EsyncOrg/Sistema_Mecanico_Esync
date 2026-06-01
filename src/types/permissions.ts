@@ -13,6 +13,7 @@ export type ModuleId =
   | 'programas'
   | 'estoque'
   | 'relatorios'
+  | 'custos'       // Phase 5: Industrial cost & pricing engine
   | 'esync_ia'
   | 'usuarios'
   | 'configuracoes'
@@ -48,6 +49,7 @@ export const ALL_MODULES: { id: ModuleId; label: string }[] = [
   { id: 'programas',     label: 'Programas'      },
   { id: 'estoque',       label: 'Estoque'        },
   { id: 'relatorios',    label: 'Relatórios'     },
+  { id: 'custos',        label: 'Custos'         },
   { id: 'esync_ia',      label: 'Esync IA'       },
   { id: 'usuarios',      label: 'Usuários'       },
   { id: 'configuracoes', label: 'Configurações'  },

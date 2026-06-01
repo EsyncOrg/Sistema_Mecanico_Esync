@@ -11,6 +11,8 @@ import { mockMaquinas } from '@/mocks/maquinas'
 import { mockEstoque }  from '@/mocks/estoque'
 import { mockRetalhos } from '@/mocks/retalhos'
 import { mockProgramas } from '@/mocks/programas'
+import { mockCentrosCusto, mockCustosMateriais, mockPerfisPrecificacao } from '@/mocks/custos'
+import { calcularTemposAnalytics } from '@/lib/tempos/analytics'
 import type { StatCard } from '@/types'
 
 // ─── Output types ─────────────────────────────────────────────────────────────
@@ -96,6 +98,23 @@ export function computeDashboardData(): DashboardData {
     mockMaquinas.reduce((s, m) => s + m.eficiencia, 0) / maquinasTotal
   )
 
+  // ── Tempos Industriais (Phase 5.5) ───────────────────────────────────────
+  const temposAn = calcularTemposAnalytics(mockPecas)
+
+  // ── Custos (Phase 5) ──────────────────────────────────────────────────────
+  const activeCentros      = mockCentrosCusto.filter((c) => c.ativo)
+  const custoMedioProjetado = activeCentros.length > 0
+    ? Math.round(activeCentros.reduce((s, c) => s + c.custoHora, 0) / activeCentros.length * 100) / 100
+    : 0
+  const activePerfis   = mockPerfisPrecificacao.filter((p) => p.ativo)
+  const margemMedia    = activePerfis.length > 0
+    ? Math.round(activePerfis.reduce((s, p) => s + p.margemLucroPercentual, 0) / activePerfis.length * 10) / 10
+    : 0
+  const thirtyDaysAgo  = new Date(Date.now() - 30 * 86_400_000)
+  const matDesatualizados = mockCustosMateriais.filter(
+    (m) => m.ativo && m.dataAtualizacao < thirtyDaysAgo
+  ).length
+
   // ── KPI Cards ─────────────────────────────────────────────────────────────
   const kpiCards: StatCard[] = [
     {
@@ -137,6 +156,80 @@ export function computeDashboardData(): DashboardData {
       icone:    'Code2',
       cor:      'accent',
       sufixo:   `de ${totalProgramas} programas`,
+    },
+    // ── Phase 5: Custos ────────────────────────────────────────────────────
+    {
+      id:       'kpi-custo-medio',
+      titulo:   'Custo Médio / Hora',
+      valor:    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoMedioProjetado),
+      variacao: 0,
+      tipo:     'neutro',
+      icone:    'Activity',
+      cor:      'primary',
+      sufixo:   `média dos ${activeCentros.length} centros ativos`,
+    },
+    {
+      id:       'kpi-margem-media',
+      titulo:   'Margem Média',
+      valor:    `${margemMedia}%`,
+      variacao: 0,
+      tipo:     'neutro',
+      icone:    'Activity',
+      cor:      'success',
+      sufixo:   `${activePerfis.length} perfis de precificação`,
+    },
+    {
+      id:       'kpi-mat-desatualizados',
+      titulo:   'Materiais Desatualizados',
+      valor:    matDesatualizados,
+      variacao: 0,
+      tipo:     matDesatualizados > 0 ? 'queda' : 'neutro',
+      icone:    'Activity',
+      cor:      matDesatualizados > 0 ? 'warning' : 'primary',
+      sufixo:   matDesatualizados > 0 ? 'preços acima de 30 dias' : 'todos os preços atualizados',
+    },
+    // ── Phase 5.5: Tempos Industriais ─────────────────────────────────────
+    {
+      id:       'kpi-tempo-medio-peca',
+      titulo:   'Tempo Médio por Peça',
+      valor:    `${temposAn.tempoMedioPorPeca}min`,
+      variacao: 0,
+      tipo:     'neutro',
+      icone:    'Activity',
+      cor:      'primary',
+      sufixo:   `${temposAn.pecasComTempos} peças com tempos`,
+    },
+    {
+      id:       'kpi-tempo-processo',
+      titulo:   'Processo Mais Lento',
+      valor:    temposAn.processoMaisDemorado ?? '—',
+      variacao: 0,
+      tipo:     'neutro',
+      icone:    'Activity',
+      cor:      'warning',
+      sufixo:   temposAn.processoMaisDemorado
+        ? `${temposAn.tempoMedioPorProcesso[temposAn.processoMaisDemorado]}min médio`
+        : 'sem dados',
+    },
+    {
+      id:       'kpi-pecas-sem-tempos',
+      titulo:   'Peças sem Tempos',
+      valor:    temposAn.pecasSemTempos,
+      variacao: 0,
+      tipo:     temposAn.pecasSemTempos > 0 ? 'queda' : 'neutro',
+      icone:    'Package',
+      cor:      temposAn.pecasSemTempos > 0 ? 'warning' : 'success',
+      sufixo:   `de ${totalPecas} peças catalogadas`,
+    },
+    {
+      id:       'kpi-tempo-total-catalogo',
+      titulo:   'Tempo Total Catalogado',
+      valor:    `${Math.round(temposAn.tempoTotalCatalogado / 60 * 10) / 10}h`,
+      variacao: 0,
+      tipo:     'neutro',
+      icone:    'Activity',
+      cor:      'accent',
+      sufixo:   `${temposAn.tempoTotalCatalogado}min em ${temposAn.pecasComTempos} peças`,
     },
   ]
 

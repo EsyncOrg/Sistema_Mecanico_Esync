@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Pencil, Loader2, CheckCircle2, AlertTriangle, Lock, Zap } from 'lucide-react'
+import { Pencil, Loader2, CheckCircle2, AlertTriangle, Lock, Zap, Calculator } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogBody, DialogFooter,
@@ -14,7 +14,16 @@ import { toast } from '@/lib/toast'
 import { logActionAudit } from '@/lib/security/importSecurity'
 import { BITOLAS, getBitolaEspessura, getBitolaFromEspessura, formatEspessura } from '@/lib/pecas/bitolaMap'
 import { parsePecaCode, generatePartCode } from '@/lib/pecas/codeGenerator'
+import { TemposIndustriaisSection } from '@/components/shared/TemposIndustriaisSection'
+import { pecaToTempos } from '@/lib/tempos/analytics'
+import { PROCESSO_FIELD } from '@/types/tempos'
+import { useTempos } from '@/contexts/TemposContext'
+import { useCustos } from '@/contexts/CustosContext'
+import { useCustosPecas } from '@/contexts/CustosPecasContext'
+import { calcularCustoPecaCompleto } from '@/lib/custos/pecasEngine'
+import { cn } from '@/lib/utils'
 import type { Peca } from '@/types'
+import type { TemposPecaValues } from '@/types/tempos'
 import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -108,17 +117,28 @@ function Field({ label, required, error, children }: {
 export function EditarPecaModal({
   open, onOpenChange, editingPeca, existingPecas, onSave,
 }: EditarPecaModalProps) {
-  const { user } = useAuth()
-  const [form, setForm]           = useState<EditForm | null>(null)
-  const [errors, setErrors]       = useState<EditErrors>({})
-  const [isLoading, setIsLoading] = useState(false)
+  const { user }                     = useAuth()
+  const { registrarAlteracaoTempo }  = useTempos()
+  const { centros, materiais, maquinasCustos } = useCustos()
+  const { config: custoConfig, recalcularPeca } = useCustosPecas()
+  const [form, setForm]              = useState<EditForm | null>(null)
+  const [errors, setErrors]          = useState<EditErrors>({})
+  const [isLoading, setIsLoading]    = useState(false)
+  const [tempos, setTempos]          = useState<TemposPecaValues>(() =>
+    editingPeca ? pecaToTempos(editingPeca) : { tempoDesenvolvimentoMin:0, tempoProgramacaoMin:0, tempoCorteMin:0, tempoDobraMin:0, tempoSoldaMin:0, tempoPinturaMin:0, tempoMontagemMin:0 }
+  )
 
   const parsed  = useMemo(() => editingPeca ? parsePecaCode(editingPeca.codigo) : null, [editingPeca])
   const isEsFab = parsed !== null
   const origSeq = parsed?.seq ?? 0
 
   useEffect(() => {
-    if (open && editingPeca) { setForm(initForm(editingPeca)); setErrors({}); setIsLoading(false) }
+    if (open && editingPeca) {
+      setForm(initForm(editingPeca))
+      setTempos(pecaToTempos(editingPeca))
+      setErrors({})
+      setIsLoading(false)
+    }
   }, [open, editingPeca])
 
   const generatedCode = useMemo(() => {
@@ -135,6 +155,24 @@ export function EditarPecaModal({
     () => (form ? getBitolaEspessura(form.bitola) : null),
     [form],
   )
+
+  // Live cost preview — recalculates as user edits peso, espessura, or tempos
+  const custoPrevisto = useMemo(() => {
+    if (!form || !editingPeca) return null
+    const previewPeca: Peca = {
+      ...editingPeca,
+      espessura:               espessuraAuto ?? editingPeca.espessura,
+      peso:                    parseFloat(form.peso)     || editingPeca.peso,
+      tempoDesenvolvimentoMin: tempos.tempoDesenvolvimentoMin || undefined,
+      tempoProgramacaoMin:     tempos.tempoProgramacaoMin     || undefined,
+      tempoCorteMin:           tempos.tempoCorteMin           || undefined,
+      tempoDobraMin:           tempos.tempoDobraMin           || undefined,
+      tempoSoldaMin:           tempos.tempoSoldaMin           || undefined,
+      tempoPinturaMin:         tempos.tempoPinturaMin         || undefined,
+      tempoMontagemMin:        tempos.tempoMontagemMin        || undefined,
+    }
+    return calcularCustoPecaCompleto(previewPeca, centros, materiais, maquinasCustos, custoConfig)
+  }, [form, editingPeca, espessuraAuto, tempos, centros, materiais, maquinasCustos, custoConfig])
 
   function set(field: keyof EditForm, value: string) {
     setForm((f) => f ? { ...f, [field]: value } : f)
@@ -162,6 +200,24 @@ export function EditarPecaModal({
 
     await new Promise((r) => setTimeout(r, 500)) // Future: Supabase update
 
+    // Detect changed time processes for audit trail
+    const oldTempos = pecaToTempos(editingPeca)
+    const processoNomes = ['Desenvolvimento','Programação','Corte','Dobra','Solda','Pintura','Montagem'] as const
+    processoNomes.forEach((nome) => {
+      const field = PROCESSO_FIELD[nome]
+      const anterior = oldTempos[field]
+      const novo     = tempos[field]
+      if (novo !== anterior) {
+        registrarAlteracaoTempo({
+          pecaId:           editingPeca.id,
+          pecaCodigo:       editingPeca.codigo,
+          processo:         nome,
+          valorAnteriorMin: anterior,
+          valorNovoMin:     novo,
+        })
+      }
+    })
+
     const updated: Peca = {
       ...editingPeca,
       codigo:         isEsFab ? generatedCode : editingPeca.codigo,
@@ -177,6 +233,14 @@ export function EditarPecaModal({
       peso:           parseFloat(form.peso)            || editingPeca.peso,
       cor:            form.cor.trim() || editingPeca.cor,
       atualizadoEm:   new Date().toISOString(),
+      // Phase 5.5: persist time values (0 → undefined to keep field clean)
+      tempoDesenvolvimentoMin: tempos.tempoDesenvolvimentoMin || undefined,
+      tempoProgramacaoMin:     tempos.tempoProgramacaoMin     || undefined,
+      tempoCorteMin:           tempos.tempoCorteMin           || undefined,
+      tempoDobraMin:           tempos.tempoDobraMin           || undefined,
+      tempoSoldaMin:           tempos.tempoSoldaMin           || undefined,
+      tempoPinturaMin:         tempos.tempoPinturaMin         || undefined,
+      tempoMontagemMin:        tempos.tempoMontagemMin        || undefined,
     }
 
     logActionAudit({
@@ -191,6 +255,7 @@ export function EditarPecaModal({
     })
 
     onSave(updated)
+    recalcularPeca(updated)   // Phase 6: refresh cost breakdown in CustosPecasContext
     setIsLoading(false)
     onOpenChange(false)
     toast('success', `Peça ${updated.codigo} atualizada`, `${changedFields.length} campo(s) alterado(s)`)
@@ -402,6 +467,79 @@ export function EditarPecaModal({
               </Field>
             ))}
           </div>
+
+          {/* ── Tempos Industriais (Phase 5.5) ── */}
+          <TemposIndustriaisSection
+            tempos={tempos}
+            onChange={setTempos}
+            showBreakdown
+          />
+
+          {/* ── Custo Calculado (Phase 6) ── */}
+          {custoPrevisto && (
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  'rounded-xl border px-4 py-3',
+                  custoPrevisto.calculadoComSucesso
+                    ? 'border-primary/20 bg-primary/5'
+                    : 'border-border bg-muted/30'
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Calculator size={13} className="text-primary" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-primary/70">
+                      Custo Estimado
+                    </span>
+                  </div>
+                  <span className={cn(
+                    'text-lg font-bold tabular-nums',
+                    custoPrevisto.custoTotal > 0 ? 'text-foreground' : 'text-muted-foreground',
+                  )}>
+                    {custoPrevisto.custoTotal > 0
+                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoPrevisto.custoTotal)
+                      : '—'
+                    }
+                  </span>
+                </div>
+
+                {custoPrevisto.custoTotal > 0 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                    {([
+                      { lbl: 'Material',  val: custoPrevisto.custoMaterial,    pct: custoPrevisto.percentuais.material    },
+                      { lbl: 'Produção',  val: custoPrevisto.custoCorte + custoPrevisto.custoDobra + custoPrevisto.custoSolda + custoPrevisto.custoPintura + custoPrevisto.custoMontagem, pct: custoPrevisto.percentuais.producao },
+                      { lbl: 'Engenharia', val: custoPrevisto.custoEngenharia + custoPrevisto.custoProgramacao, pct: custoPrevisto.percentuais.engenharia + custoPrevisto.percentuais.programacao },
+                      { lbl: 'Máquinas',  val: custoPrevisto.custoMaquinas,    pct: custoPrevisto.percentuais.maquinas    },
+                      { lbl: 'Indiretos', val: custoPrevisto.custoIndiretos,   pct: custoPrevisto.percentuais.indiretos   },
+                    ] as { lbl: string; val: number; pct: number }[])
+                      .filter((r) => r.val > 0)
+                      .map(({ lbl, val, pct }) => (
+                        <span key={lbl}>
+                          {lbl}: <span className="font-medium text-foreground">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)}
+                          </span>{' '}
+                          <span className="text-muted-foreground/70">({pct}%)</span>
+                        </span>
+                      ))
+                    }
+                  </div>
+                )}
+
+                {custoPrevisto.avisos.length > 0 && (
+                  <div className="mt-2 space-y-0.5">
+                    {custoPrevisto.avisos.map((a, i) => (
+                      <div key={i} className="flex items-start gap-1 text-[11px] text-warning">
+                        <AlertTriangle size={10} className="mt-0.5 flex-shrink-0" />
+                        <span>{a}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          )}
 
         </DialogBody>
 

@@ -34,7 +34,8 @@ interface DesenvolvimentoContextValue {
   // Production request lifecycle
   criarSolicitacao: (
     input: Omit<SolicitacaoProducao, 'id' | 'criadoEm' | 'iniciadoEm' | 'finalizadoEm' | 'pausas' | 'status'>
-  ) => void
+  ) => SolicitacaoProducao
+  getSolicitacaoById: (id: string) => SolicitacaoProducao | undefined
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -48,7 +49,8 @@ const DesenvolvimentoContext = createContext<DesenvolvimentoContextValue>({
   retomarDesenvolvimento: () => {},
   enviarParaAprovacao: () => {},
   finalizarDesenvolvimento: () => {},
-  criarSolicitacao: () => {},
+  criarSolicitacao: () => { throw new Error('DesenvolvimentoContext not mounted') },
+  getSolicitacaoById: () => undefined,
 })
 
 // ─── Provider ────────────────────────────────────────────────────────────────
@@ -147,7 +149,7 @@ export function DesenvolvimentoProvider({ children }: { children: React.ReactNod
   const criarSolicitacao = useCallback(
     (
       input: Omit<SolicitacaoProducao, 'id' | 'criadoEm' | 'iniciadoEm' | 'finalizadoEm' | 'pausas' | 'status'>
-    ) => {
+    ): SolicitacaoProducao => {
       const nova: SolicitacaoProducao = {
         ...input,
         id: `sol-${Date.now()}`,
@@ -158,8 +160,14 @@ export function DesenvolvimentoProvider({ children }: { children: React.ReactNod
         pausas: [],
       }
       setSolicitacoes((prev) => [nova, ...prev])
+      return nova
     },
     []
+  )
+
+  const getSolicitacaoById = useCallback(
+    (id: string) => solicitacoes.find((s) => s.id === id),
+    [solicitacoes]
   )
 
   return (
@@ -174,6 +182,7 @@ export function DesenvolvimentoProvider({ children }: { children: React.ReactNod
         enviarParaAprovacao,
         finalizarDesenvolvimento,
         criarSolicitacao,
+        getSolicitacaoById,
       }}
     >
       {children}

@@ -61,6 +61,14 @@ export interface PecaSolicitacao {
    * Future use: time distribution, stock allocation, production routing per OS
    */
   osDistribuicao: OsDistribuicao[]
+
+  // ── Phase 4: ERP traceability references ─────────────────────────────────
+  // Preserved from the originating OrcamentoItem when converted from a quote.
+  unidade?: string        // from OrcamentoItem.unidade
+  pecaId?: string         // FK → Peças module
+  conjuntoId?: string     // FK → Conjuntos module
+  maquinaId?: string      // FK → Máquinas module
+  // Future Phase 5: custoMaterial, custoMaoObra, markupPercent
 }
 
 // ─── Future: Conjunto reference ───────────────────────────────────────────────
@@ -100,6 +108,17 @@ export interface SolicitacaoProducao {
   iniciadoEm: Date | null
   finalizadoEm: Date | null
   pausas: PausaDesenvolvimento[]
+
+  // ── Phase 4: Origin traceability ──────────────────────────────────────────
+  // Set when this solicitation was created via Orçamento conversion.
+  // 'manual' = created directly in Desenvolvimento (legacy / default).
+  origem?: 'orcamento' | 'manual'
+  origemId?: string       // FK → orcamentos.id (when origem === 'orcamento')
+  numeroOrigem?: string   // human ref, e.g. "ORC-2026-00001"
+  // Future Phase 5: engenharia approval gate, custo total calculado
+  // aprovadoEngenhariaEm?: Date
+  // custoTotal?: number
+
   // Future integration points (set after routing to production):
   // programacaoId?: string
   // corteIds?: string[]

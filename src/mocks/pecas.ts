@@ -18,6 +18,14 @@ export const mockPecas: Peca[] = [
     arquivo3d: '/models/pca0001.ipt',
     planoDobra: '',
     atualizadoEm: '2026-05-25T10:00:00',
+    // Phase 5.5: Industrial times (minutes)
+    tempoDesenvolvimentoMin: 20,
+    tempoProgramacaoMin:     15,
+    tempoCorteMin:           8,
+    tempoDobraMin:           0,
+    tempoSoldaMin:           0,
+    tempoPinturaMin:         0,
+    tempoMontagemMin:        5,
   },
   {
     id: '2',
@@ -36,6 +44,14 @@ export const mockPecas: Peca[] = [
     arquivo3d: '/models/pca0002.ipt',
     planoDobra: '/docs/pca0002.pdf',
     atualizadoEm: '2026-05-24T15:30:00',
+    // Phase 5.5: Industrial times
+    tempoDesenvolvimentoMin: 30,
+    tempoProgramacaoMin:     20,
+    tempoCorteMin:           10,
+    tempoDobraMin:           15,
+    tempoSoldaMin:           0,
+    tempoPinturaMin:         25,
+    tempoMontagemMin:        10,
   },
   {
     id: '3',
@@ -72,6 +88,14 @@ export const mockPecas: Peca[] = [
     arquivo3d: '/models/pca0004.ipt',
     planoDobra: '',
     atualizadoEm: '2026-05-23T11:00:00',
+    // Phase 5.5: Industrial times — usinado, sem dobra/solda/pintura
+    tempoDesenvolvimentoMin: 45,
+    tempoProgramacaoMin:     30,
+    tempoCorteMin:           20,
+    tempoDobraMin:           0,
+    tempoSoldaMin:           0,
+    tempoPinturaMin:         0,
+    tempoMontagemMin:        5,
   },
   {
     id: '5',
@@ -126,6 +150,14 @@ export const mockPecas: Peca[] = [
     arquivo3d: '',
     planoDobra: '/docs/pca0007.pdf',
     atualizadoEm: '2026-05-21T16:00:00',
+    // Phase 5.5: Industrial times — perfil conformado pintado
+    tempoDesenvolvimentoMin: 15,
+    tempoProgramacaoMin:     10,
+    tempoCorteMin:           6,
+    tempoDobraMin:           12,
+    tempoSoldaMin:           0,
+    tempoPinturaMin:         18,
+    tempoMontagemMin:        8,
   },
   {
     id: '8',

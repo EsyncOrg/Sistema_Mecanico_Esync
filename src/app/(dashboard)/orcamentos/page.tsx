@@ -6,6 +6,7 @@ import {
   FileText, Plus, Search, Download,
   FileCheck2, Send, ThumbsDown, Clock,
   TrendingUp, DollarSign, SlidersHorizontal, Eye, FileDown,
+  Factory, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { PageHeader }     from '@/components/shared/PageHeader'
 import { PermissionGate } from '@/components/shared/PermissionGate'
@@ -16,9 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { cn }             from '@/lib/utils'
 import { useAuth }        from '@/contexts/AuthContext'
 import { useOrcamentos }  from '@/contexts/OrcamentosContext'
-import { NovoOrcamentoModal }     from '@/components/orcamentos/NovoOrcamentoModal'
+import { NovoOrcamentoModal }       from '@/components/orcamentos/NovoOrcamentoModal'
 import { OrcamentoDetalheModal, revisionLabel } from '@/components/orcamentos/OrcamentoDetalheModal'
-import { gerarPdfOrcamento }      from '@/lib/orcamentos/gerarPdfOrcamento'
+import { ConversaoProducaoModal }  from '@/components/orcamentos/ConversaoProducaoModal'
+import { gerarPdfOrcamento }       from '@/lib/orcamentos/gerarPdfOrcamento'
 import type { Orcamento, StatusOrcamento, PrioridadeOrcamento } from '@/types/orcamentos'
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -109,9 +111,11 @@ export default function OrcamentosPage() {
   const { analytics, orcamentos, filtros, setFiltros } = useOrcamentos()
 
   // ── Modal state ──────────────────────────────────────────────────────────────
-  const [novoOpen,       setNovoOpen]       = useState(false)
-  const [detalheOpen,    setDetalheOpen]    = useState(false)
-  const [selected,       setSelected]       = useState<Orcamento | null>(null)
+  const [novoOpen,        setNovoOpen]        = useState(false)
+  const [detalheOpen,     setDetalheOpen]     = useState(false)
+  const [selected,        setSelected]        = useState<Orcamento | null>(null)
+  const [conversaoOpen,   setConversaoOpen]   = useState(false)
+  const [conversaoTarget, setConversaoTarget] = useState<Orcamento | null>(null)
 
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [search,       setSearch]       = useState('')
@@ -172,7 +176,7 @@ export default function OrcamentosPage() {
         }
       />
 
-      {/* KPI Cards */}
+      {/* KPI Cards — Status */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Total"           value={analytics.totalOrcamentos} icon={FileText}   colorClass="text-foreground"       bgClass="bg-muted"         ringClass="ring-border"         delay={0}    />
         <KpiCard label="Em Elaboração"   value={analytics.emElaboracao}    icon={Clock}      colorClass="text-muted-foreground" bgClass="bg-muted/60"      ringClass="ring-border/50"      delay={0.05} />
@@ -180,6 +184,13 @@ export default function OrcamentosPage() {
         <KpiCard label="Aprovados"       value={analytics.aprovados}       icon={FileCheck2} colorClass="text-success"          bgClass="bg-success/10"    ringClass="ring-success/20"     delay={0.15} />
         <KpiCard label="Reprovados"      value={analytics.reprovados}      icon={ThumbsDown} colorClass="text-destructive"      bgClass="bg-destructive/10"ringClass="ring-destructive/20" delay={0.2}  />
         <KpiCard label="Taxa Aprovação"  value={`${analytics.taxaAprovacao}%`} icon={TrendingUp} colorClass="text-success"     bgClass="bg-success/10"    ringClass="ring-success/20"     delay={0.25} />
+      </div>
+
+      {/* KPI Cards — Phase 4: Production Conversion Pipeline */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Convertidos"         value={analytics.convertidos}       icon={Factory}       colorClass="text-primary"          bgClass="bg-primary/10"    ringClass="ring-primary/20"     delay={0.3}  />
+        <KpiCard label="Conversões no Mês"   value={analytics.conversoesNoMes}   icon={CheckCircle2}  colorClass="text-success"          bgClass="bg-success/10"    ringClass="ring-success/20"     delay={0.35} />
+        <KpiCard label="Aguardando Conversão" value={analytics.pendenteConversao} icon={AlertTriangle} colorClass="text-warning"          bgClass="bg-warning/10"    ringClass="ring-warning/20"     delay={0.4}  />
       </div>
 
       {/* Financial strip */}
@@ -370,6 +381,21 @@ export default function OrcamentosPage() {
                               >
                                 <FileDown size={13} />
                               </button>
+                              {/* Phase 4: conversion shortcut — visible only for approved quotes */}
+                              {orc.status === 'aprovado' && canEdit('orcamentos') && (
+                                <button
+                                  onClick={() => { setConversaoTarget(orc); setConversaoOpen(true) }}
+                                  className={cn(
+                                    'flex h-7 w-7 items-center justify-center rounded-lg border transition-colors',
+                                    orc.convertidoParaProducao
+                                      ? 'border-success/40 text-success bg-success/5 hover:bg-success/10'
+                                      : 'border-border text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5'
+                                  )}
+                                  title={orc.convertidoParaProducao ? 'Já convertido para produção' : 'Converter para Produção'}
+                                >
+                                  <Factory size={13} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </motion.tr>
@@ -391,6 +417,12 @@ export default function OrcamentosPage() {
       open={detalheOpen}
       onOpenChange={(v) => { setDetalheOpen(v); if (!v) setSelected(null) }}
       orcamento={liveSelected}
+    />
+    {/* Phase 4: conversion modal — opened from table row or detail modal */}
+    <ConversaoProducaoModal
+      open={conversaoOpen}
+      onOpenChange={(v) => { setConversaoOpen(v); if (!v) setConversaoTarget(null) }}
+      orcamento={conversaoTarget}
     />
 
     </PermissionGate>

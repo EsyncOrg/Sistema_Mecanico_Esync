@@ -32,6 +32,7 @@ export const mockCargos: Cargo[] = [
       programas:      full(),
       estoque:        full(),
       relatorios:     full(),
+      custos:         full(),
       esync_ia:       full(),
       usuarios:       full(),
       configuracoes:  full(),
@@ -70,6 +71,7 @@ export const mockCargos: Cargo[] = [
       dobra:          view(),
       estoque:        view(),
       relatorios:     view(),
+      custos:         view(),
     } as Partial<Record<ModuleId, ModulePermission>>),
   },
   {
@@ -89,6 +91,7 @@ export const mockCargos: Cargo[] = [
       dobra:          view(),
       estoque:        view(),
       relatorios:     view(),
+      custos:         view(),
     } as Partial<Record<ModuleId, ModulePermission>>),
   },
   {
@@ -132,6 +135,7 @@ export const mockCargos: Cargo[] = [
       dashboard:    view(),
       orcamentos:   full(),
       relatorios:   view(),
+      custos:       full(),    // Phase 5: Administrativo manages pricing profiles
       configuracoes:full(),
     } as Partial<Record<ModuleId, ModulePermission>>),
   },

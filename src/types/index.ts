@@ -40,6 +40,19 @@ export interface Peca {
   arquivo3d: string       // path/url — future Autodesk Inventor integration
   planoDobra: string      // path/url — future PDF/DWG integration
   atualizadoEm: string    // ISO datetime, auto-updated on every edit
+
+  // ── Phase 5: Cost architecture hooks ──────────────────────────────────────
+  // Not yet surfaced in UI. Engine will use these when Phase 6 enables
+  // per-piece cost calculation. All optional — no existing data is affected.
+  tempoDesenvolvimentoMin?: number
+  tempoProgramacaoMin?: number
+  tempoCorteMin?: number
+  tempoDobraMin?: number
+  tempoSoldaMin?: number
+  tempoPinturaMin?: number
+  tempoMontagemMin?: number
+  // [HOOK:CUSTO_PECA] — Phase 6: computed by engine.calcularCustoTotal()
+  // custoCalculadoBRL?: number
 }
 
 // Kept for other modules (estoque, etc.) that still use status

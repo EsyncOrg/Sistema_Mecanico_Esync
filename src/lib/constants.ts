@@ -71,6 +71,11 @@ export const NAV_ITEMS = [
     icon: 'BarChart3',
   },
   {
+    label: 'Custos',
+    href: '/custos',
+    icon: 'Calculator',
+  },
+  {
     label: 'Esync IA',
     href: '/esync-ia',
     icon: 'Brain',

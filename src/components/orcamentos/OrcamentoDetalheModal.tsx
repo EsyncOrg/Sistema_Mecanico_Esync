@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText, Send, ThumbsUp, ThumbsDown, XCircle, RotateCcw,
   Plus, Trash2, CheckCircle2, AlertCircle, Pencil,
-  Package, History, GitBranch, Save, X, FileDown, BookOpen,
+  Package, History, GitBranch, Save, X, FileDown, BookOpen, Factory,
 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
@@ -18,8 +18,9 @@ import { cn }     from '@/lib/utils'
 import { toast }  from '@/lib/toast'
 import { useAuth }               from '@/contexts/AuthContext'
 import { useOrcamentos }         from '@/contexts/OrcamentosContext'
-import { CatalogSelectorModal }  from '@/components/orcamentos/CatalogSelectorModal'
-import { gerarPdfOrcamento }     from '@/lib/orcamentos/gerarPdfOrcamento'
+import { CatalogSelectorModal }      from '@/components/orcamentos/CatalogSelectorModal'
+import { ConversaoProducaoModal }   from '@/components/orcamentos/ConversaoProducaoModal'
+import { gerarPdfOrcamento }        from '@/lib/orcamentos/gerarPdfOrcamento'
 import type {
   Orcamento,
   OrcamentoItem,
@@ -75,6 +76,7 @@ const HIST_ICON: Record<string, React.ComponentType<{ size?: number; className?:
   cancelamento: XCircle,
   revisao:      GitBranch,
   comentario:   AlertCircle,
+  conversao:    Factory,
 }
 
 const HIST_COLOR: Record<string, string> = {
@@ -86,6 +88,7 @@ const HIST_COLOR: Record<string, string> = {
   cancelamento: 'text-muted-foreground',
   revisao:      'text-warning',
   comentario:   'text-accent',
+  conversao:    'text-primary',
 }
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
@@ -557,9 +560,10 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
 
   const userCanEdit = canEdit('orcamentos')
 
-  const [activeTab, setActiveTab]   = useState<TabId>('itens')
-  const [editMode,  setEditMode]    = useState(false)
-  const [drafts,    setDrafts]      = useState<ItemDraft[]>([])
+  const [activeTab,      setActiveTab]      = useState<TabId>('itens')
+  const [editMode,       setEditMode]       = useState(false)
+  const [drafts,         setDrafts]         = useState<ItemDraft[]>([])
+  const [conversaoOpen,  setConversaoOpen]  = useState(false)
 
   // Sync drafts when orcamento changes or edit mode opens
   const startEdit = useCallback(() => {
@@ -617,6 +621,7 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
   ]
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => { if (!v) cancelEdit(); onOpenChange(v) }}>
       <DialogContent size="xl">
 
@@ -710,6 +715,24 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
               </Button>
             )
           )}
+          {/* Phase 4: Converter para Produção — visible only for approved quotes */}
+          {orcamento.status === 'aprovado' && userCanEdit && (
+            <Button
+              size="sm"
+              variant={orcamento.convertidoParaProducao ? 'outline' : 'default'}
+              className={cn(
+                'gap-1.5',
+                orcamento.convertidoParaProducao
+                  ? 'border-success/40 text-success hover:bg-success/5'
+                  : ''
+              )}
+              onClick={() => setConversaoOpen(true)}
+            >
+              <Factory size={13} />
+              {orcamento.convertidoParaProducao ? 'Ver Conversão' : 'Converter para Produção'}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -725,5 +748,13 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
 
       </DialogContent>
     </Dialog>
+
+    {/* Phase 4: Conversion confirmation modal */}
+    <ConversaoProducaoModal
+      open={conversaoOpen}
+      onOpenChange={setConversaoOpen}
+      orcamento={orcamento}
+    />
+    </>
   )
 }

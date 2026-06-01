@@ -1,7 +1,7 @@
 # Orçamentos Module
 
 *Esync ERP — Commercial Quoting System*
-*Phase 1 implemented: 2026-06-01 | Phase 2A implemented: 2026-06-01*
+*Phase 1 implemented: 2026-06-01 | Phase 2A implemented: 2026-06-01 | Phase 3 PDF v2 refactored: 2026-06-01*
 
 ---
 
@@ -342,18 +342,26 @@ const { data: orcamentos } = await supabase
 - Extended filters: cliente, data criação, data validade
 - `valorTotal` added to analytics; `validadeInicio`/`validadeFim` added to filters
 
-### Phase 3 — Professional Commercial PDF ✅ (current)
+### Phase 3 — Professional Commercial PDF ✅ (current, v2 refactored)
 - `gerarPdfOrcamento()` — portrait A4 commercial document, zero SSR bundle impact
 - Triggered from: "Gerar PDF" button in detail modal footer + table row action
 - PDF sections: header, destinatário, objeto, itens table (auto page break), resumo financeiro, condições comerciais, histórico de revisões
 - Filename pattern: `ORCAMENTO_ORC-2026-00001_REV-A.pdf`
 - New `Orcamento` fields: `garantia`, `condicoesComerciais`, `observacoesComerciais`
 - Future extension hooks commented at every injection point (logo, QR, signature, cost breakdown)
+- **v2 refactor:** section-based architecture — each section pre-calculates height, `checkSpace()` prevents all overlaps; commercial terms rendered as teal-accented card-per-field; revision history uses badge system (no Unicode corruption); financial summary has dominant TOTAL GERAL pill; typography hierarchy enforced at every level
 
-### Phase 4 — Production Conversion
-- "Converter em OS" button (approved quote → `SolicitacaoProducao` in Desenvolvimento)
-- Auto-populate production request from approved quote items
-- Email delivery via SendGrid/Resend (future)
+### Phase 4 — Production Conversion ✅ (current)
+- "Converter para Produção" button — available in detail modal footer + table row action
+- Visible and enabled only when `status === 'aprovado'` and `canEdit('orcamentos')`
+- Confirmation modal shows: número, cliente, valor total, quantidade de itens, revisão
+- Creates `SolicitacaoProducao` in `DesenvolvimentoContext` with full traceability
+- OS number auto-derived: `OS:CONV-{orcamento.numero.replace('ORC-', '')}`
+- All `OrcamentoItem` fields transferred → `PecaSolicitacao[]` with `pecaId`, `conjuntoId`, `maquinaId` preserved
+- `Orcamento` updated: `convertidoParaProducao`, `dataConversao`, `responsavelConversao`, `solicitacaoProducaoId`
+- Audit history entry `tipo: 'conversao'` appended to `OrcamentoHistorico`
+- 3 new dashboard KPI cards: Convertidos, Conversões no Mês, Aguardando Conversão
+- Future extension hooks: `[HOOK:ENGENHARIA_GATE]`, `[HOOK:ESTRUTURA_AUTO]`, `[HOOK:CUSTO_CALC]`, `[HOOK:MAQUINA_ALLOC]`, `[HOOK:EMAIL_NOTIFY]`
 
 ### Phase 5 — Dashboard & Analytics
 - Commercial dashboard: monthly revenue forecast, win rate, pipeline value
@@ -419,7 +427,7 @@ const { data: orcamentos } = await supabase
 
 ---
 
-## 13. PDF Architecture (Phase 3)
+## 13. PDF Architecture (Phase 3 — v2)
 
 ### File
 `src/lib/orcamentos/gerarPdfOrcamento.ts`
@@ -428,71 +436,182 @@ const { data: orcamentos } = await supabase
 
 ```
 0mm ─────────────────────────────────────────────── 210mm
-│  HEADER (0–44mm)                                       │
+│  HEADER BLOCK (0–47mm)                                 │
 │  ┌─────────────────────────────────────────────────┐  │
 │  │ [orange 5mm] ESYNC          PROPOSTA COMERCIAL  │  │
-│  │             Sistema Mecânico   ORC-2026-00001   │  │
-│  │                                  Rev. A          │  │
+│  │              tagline          ORC-2026-00001    │  │
+│  │                                 Revisao A       │  │
+│  │                         [APROVADO chip if set]  │  │
 │  ├─────────────────────────────────────────────────┤  │
-│  │ INFO STRIP: Emissão · Validade · Responsável    │  │
+│  │ INFO STRIP (14mm): Emissao  Validade  Resp.     │  │
 │  └─────────────────────────────────────────────────┘  │
-│  DESTINATÁRIO (≈30mm, dynamic)                        │
-│  OBJETO DO ORÇAMENTO (≈25mm, dynamic)                 │
-│  ITENS DO ORÇAMENTO — autoTable (auto page break)     │
-│  RESUMO FINANCEIRO (28mm fixed)                       │
-│  CONDIÇÕES COMERCIAIS (dynamic, hidden if empty)      │
-│  HISTÓRICO DE REVISÕES (dynamic)                      │
-│  FOOTER (bottom 12mm, all pages)                      │
-│  ─ pág. X / Y ─────────────────────────────── ESYNC ─│
+│  content y starts at 68mm                             │
+│                                                        │
+│  ┌── DESTINATARIO card (dynamic, ~40mm) ────────────┐ │
+│  │  teal label + client fields                      │ │
+│  └──────────────────────────────────────────────────┘ │
+│  ┌── OBJETO DO ORCAMENTO card (dynamic) ─────────────┐│
+│  │  teal label + title (11pt bold) + desc + obs     ││
+│  └───────────────────────────────────────────────────┘│
+│  ── ITENS DO ORCAMENTO  (autoTable, multi-page) ───── │
+│  ┌── RESUMO FINANCEIRO card (47mm fixed) ────────────┐│
+│  │  qty  subtotal  placeholders  ━━━━━  [TOTAL] pill ││
+│  └───────────────────────────────────────────────────┘│
+│  ┌── CONDICOES COMERCIAIS (card-per-field) ───────────┐│
+│  │  each term = teal-stripe card, checkSpace guarded ││
+│  └───────────────────────────────────────────────────┘│
+│  ┌── HISTORICO DE REVISOES (card, dynamic rows) ─────┐│
+│  │  table header + badge rows + ATUAL orange pill    ││
+│  └───────────────────────────────────────────────────┘│
+│  FOOTER (bottom 12mm, every page)                     │
+│  ─ pag. X / Y ───────────────────────────── ESYNC ─  │
 297mm ──────────────────────────────────────────────────│
 ```
 
-### Section rendering
+### Rendering flow (v2 — section-based)
 
-Each section uses a **y-cursor** approach:
-- `y` starts at `HDR (44) + INFO_STRIP (13) + 6 = 63mm`
-- Each section function returns the new `y` after rendering
-- `guardPageBreak(doc, y, neededMm, orcamento)` adds a page when content won't fit
-- On new pages: `drawMiniHeader()` repeats a compact 10mm teal header
+```
+gerarPdfOrcamento(orcamento)
+  drawFullHeader(doc, orc)          // always page 1
+  y = CONTENT_START (68mm)
+
+  checkSpace(doc, y, 48, orc)       // client section
+  y = renderClientSection(...)
+
+  checkSpace(doc, y, 40, orc)       // project section
+  y = renderProjectSection(...)
+
+  checkSpace(doc, y, 35, orc)       // items label
+  sectionLabel(...)
+  autoTable(...)                    // multi-page, didDrawPage → drawMiniHeader
+  y = lastAutoTable.finalY + 9
+
+  checkSpace(doc, y, 52, orc)       // financial
+  y = renderFinancialSummary(...)
+
+  renderCommercialTerms(...)        // each card calls checkSpace internally
+    checkSpace(doc, y, 12+firstCardH, orc)  // label + first card together
+    forEach card → checkSpace(doc, y, cardH+2, orc)
+
+  renderRevisionHistory(...)        // calls checkSpace for entire block
+    checkSpace(doc, y, boxH, orc)
+
+  // post-loop footer pass
+  for p in 1..totalPages → drawFooter(doc, p, total, orc)
+```
+
+### Page-break guard
+
+```typescript
+function checkSpace(doc, y, needed, orc): number {
+  if (y + needed <= SAFE_BOTTOM) return y   // fits — no change
+  doc.addPage()
+  drawMiniHeader(doc, orc)
+  return MINI_H + 8                         // cursor at top of new content area
+}
+```
+
+`SAFE_BOTTOM = PH − FOOT_H − 4 = 281mm`. Every section, every card, and the items-table margin all respect this boundary.
+
+### Height pre-calculation
+
+Before any section draws, it measures its required height:
+
+| Section | Method |
+|---------|--------|
+| Client | `fieldCount × 6mm + 15mm` fixed overhead |
+| Project | `measureText()` for description + observations |
+| Financial | Fixed `47mm` |
+| Each commercial term card | `measureText()` for multi-line; `13mm` for single-line |
+| Revision history | `25mm + rows × 7.5mm` |
+
+`measureText(doc, text, maxW, fontSize)` — calls `splitTextToSize` without drawing, returns mm height. Zero drawing side-effects.
+
+### Typography hierarchy
+
+| Level | Font | Size | Usage |
+|-------|------|------|-------|
+| Logo | Helvetica Bold | 22pt | ESYNC logotype |
+| Document title | Helvetica Bold | 15pt | PROPOSTA COMERCIAL |
+| Quote number | Helvetica Bold | 9.5pt | ORC-2026-00001 |
+| Section title | Helvetica Bold | 11pt | Quote title in Objeto |
+| Section label | Helvetica Bold | 6.5pt | DESTINATARIO, ITENS… |
+| Field label | Helvetica Bold | 7pt | Cliente:, Validade: |
+| Body text | Helvetica Normal | 8pt | Descriptions, values |
+| Table header | Helvetica Bold | 6.5pt | Column headers |
+| Table body | Helvetica Normal | 8pt | Item rows |
+| Footer | Helvetica Normal | 5.5–7pt | Page number, notice |
 
 ### Color constants
 
 | Name | RGB | Usage |
 |------|-----|-------|
-| `teal` | `(10, 58, 74)` | Header bg, section labels, table header |
-| `orange` | `(224, 115, 25)` | Left accent bar (all pages) |
-| `dark` | `(20, 35, 52)` | Main body text |
-| `muted` | `(100, 120, 140)` | Field labels, secondary text |
-| `bgLight` | `(239, 244, 248)` | Section backgrounds |
-| `bgZebra` | `(245, 249, 252)` | Alternating table rows |
+| `teal` | `(10, 58, 74)` | Header bg, section labels, table header, rev badge |
+| `orange` | `(224, 115, 25)` | Left accent bar, "ATUAL" revision badge |
+| `dark` | `(22, 36, 54)` | Body text, values |
+| `muted` | `(95, 118, 140)` | Field labels, secondary text |
+| `mutedLt` | `(148, 170, 188)` | Placeholder rows, tertiary text |
+| `tealLight` | `(165, 210, 228)` | Header secondary text, table header text |
+| `bgCard` | `(244, 248, 252)` | Card fills |
+| `bgLight` | `(236, 243, 248)` | Section alternating card fill |
+| `bgZebra` | `(249, 252, 255)` | Table zebra rows |
+| `borderLt` | `(216, 230, 240)` | Card outlines |
+| `success` | `(20, 130, 82)` | Approved status chip |
 
 ### Items table columns
 
 | Col | Width | Align | Style |
 |-----|-------|-------|-------|
 | `#` | 7mm | center | normal |
-| CÓDIGO | 22mm | center | **bold**, teal color |
-| DESCRIÇÃO | 73mm | left | linebreak overflow |
+| CODIGO | 22mm | center | **bold**, teal |
+| DESCRICAO | 73mm | left | linebreak overflow, 10mm min height |
 | QTD. | 14mm | center | normal |
 | UN. | 12mm | center | normal |
 | VLR. UNIT. | 27mm | right | normal |
 | TOTAL | 27mm | right | **bold** |
 
-Total table width = 182mm (UW = 210 − 14 × 2).
+Total = 182mm = UW. Cell padding: 3.5mm top/bottom, 3mm left/right. `minCellHeight: 10mm`. `showHead: 'everyPage'`. `rowPageBreak: 'avoid'`.
 
-### Financial summary block
+### Financial summary (v2 — dominant TOTAL)
 
 ```
-┌─ RESUMO FINANCEIRO ──────────────────────────────┐
-│  Quantidade de itens:              5              │
-│  Subtotal:                 R$ 9.990,00            │
-│  Desconto: —    Frete: —    Impostos: —           │
-│  ────────────────────────────────────────────     │
-│  TOTAL GERAL:         [ R$ 9.990,00 ] ←teal box  │
-└───────────────────────────────────────────────────┘
+┌─ RESUMO FINANCEIRO ────────────────────────────────────┐
+│  Quantidade de itens:                           5       │
+│  Subtotal:                             R$ 9.990,00     │
+│  Desconto: -    Frete: -    Impostos: -                │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ TOTAL GERAL                   R$ 9.990,00       │   │  ← deep teal pill, 13pt value
+│  └─────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────┘
 ```
 
-Placeholders (`Desconto: —`, `Frete: —`, `Impostos: —`) are rendered as visible but inactive. `[HOOK:FINANCEIRO_EXTRA]` marks the injection point for Phase 5 cost breakdown.
+### Commercial terms (v2 — card-per-field)
+
+Each field renders as a separate card with a teal left-stripe accent. Cards alternate `bgCard` / `bgLight` fill for visual rhythm. Single-line fields (Prazo, Pagamento, Garantia) show value right-aligned on the label line. Multi-line fields (Condições, Observações) render value below the label. Every card calls `checkSpace` before drawing, so long sections flow across pages without overlap.
+
+### Revision history (v2 — badge system, no Unicode)
+
+```
+┌─ HISTORICO DE REVISOES ────────────────────────────────┐
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ teal header: REV.   DATA      MOTIVO             │  │
+│  ├──────────────────────────────────────────────────┤  │
+│  │ [A]   01/06/2026   Criacao inicial               │  │
+│  │ [B]   15/06/2026   Ajuste de precos  [ATUAL]←orange│ │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
+
+- Rev badge: teal filled (current) / bgLight filled (past) — no Unicode glyphs
+- "ATUAL" orange rounded-rect badge on the current revision row
+- Alternating row fill (bgZebra every odd row)
+- Current row: highlighted blue tint + bold text
+- All labels are plain ASCII — eliminates character corruption from jsPDF's WinAnsi encoding limitation
+
+### Unicode safety note
+
+jsPDF's built-in `helvetica` uses WinAnsi (Windows-1252) encoding. Portuguese accented characters (ã, â, ç, é, etc.) are in WinAnsi and render correctly. The v1 corruption was caused by `▶` (U+25B6), which is outside 0x00–0xFF. v2 eliminates all such glyphs — visual intent is achieved with filled rectangles and rounded-rects instead.
 
 ### Export filename pattern
 
@@ -504,41 +623,190 @@ Example: `ORCAMENTO_ORC-2026-00001_REV-A.pdf`
 
 ### Future extension hooks
 
-Every future feature has a comment marking the injection point:
-
 | Hook | Location | Future use |
 |------|----------|-----------|
-| `[HOOK:LOGO]` | Header, left side | Replace "ESYNC" text with `addImage(logoDataUrl)` |
-| `[HOOK:QR]` | Header, right side | QR code linking to quote public URL |
-| `[HOOK:CLIENTE_LOGO]` | Client section | Customer logo addImage |
+| `[HOOK:LOGO]` | Header, left | Replace "ESYNC" text with `addImage(logoDataUrl)` |
+| `[HOOK:QR]` | Header, right | QR code → quote public URL |
+| `[HOOK:CLIENTE_LOGO]` | Client section | Customer logo `addImage()` |
 | `[HOOK:FINANCEIRO_EXTRA]` | Financial summary | Discount, freight, tax rows |
-| `[HOOK:COST_BREAKDOWN]` | After items table | Material + labor cost per item |
+| `[HOOK:COST_BREAKDOWN]` | After items table | Per-item material + labour detail |
 | `[HOOK:SIGNATURE]` | Before footer | Digital signature block |
 | `[HOOK:APPROVAL]` | Overlay | "APROVADO" stamp on approved quotes |
 
 ### Supabase compatibility
 
-`gerarPdfOrcamento(orcamento: Orcamento)` accepts the domain type directly. When Supabase is integrated:
+`gerarPdfOrcamento(orcamento: Orcamento)` accepts the domain type directly — no changes needed at Supabase integration time:
+
 ```typescript
-// In a server action or API route:
 const { data: orc } = await supabase
   .from('orcamentos')
   .select('*, itens:orcamento_itens(*), revisoes:orcamento_revisoes(*), historico:orcamento_historico(*)')
-  .eq('id', id)
-  .single()
+  .eq('id', id).single()
 
-// Then on client after receiving data:
-await gerarPdfOrcamento(orc as Orcamento)
+await gerarPdfOrcamento(orc as Orcamento)   // works as-is
 ```
-
-No changes to the PDF function itself are needed for Supabase migration.
 
 ### New `Orcamento` fields (Phase 3)
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `garantia` | `string?` | Warranty terms shown in PDF |
-| `condicoesComerciais` | `string?` | General commercial conditions (multi-line) |
-| `observacoesComerciais` | `string?` | Commercial notes shown in PDF |
+| `garantia` | `string?` | Warranty terms — rendered in commercial terms card |
+| `condicoesComerciais` | `string?` | General conditions (multi-line card) |
+| `observacoesComerciais` | `string?` | External commercial notes (multi-line card) |
 
-These fields already existed in `NovoOrcamentoInput` (Phase 3 update) and are stored on the `Orcamento` entity. Existing mock data for ORC-2026-001 includes sample values for `garantia` and `condicoesComerciais`.
+### Stress-test notes
+
+| Scenario | Behaviour |
+|----------|-----------|
+| 50+ items | autoTable pages automatically; `showHead: 'everyPage'`; `rowPageBreak: 'avoid'` |
+| Long descriptions | `overflow: 'linebreak'` inside autoTable; wraps cleanly, no clipping |
+| 10+ revisions | `checkSpace` moves entire revision block to a new page if needed |
+| Long commercial terms | card-per-field loop; each card has independent `checkSpace` |
+| All sections combined | `checkSpace` before every section; zero overlaps guaranteed |
+
+---
+
+## 14. Phase 4 Architecture — Orçamento → Produção
+
+### Commercial → Engineering → Production bridge
+
+```
+Orçamento (APROVADO)
+  │
+  │  click "Converter para Produção"
+  ▼
+ConversaoProducaoModal       — confirmation + preview
+  │
+  │  1. criarSolicitacao()   — DesenvolvimentoContext
+  │  2. registrarConversao() — OrcamentosContext
+  ▼
+SolicitacaoProducao (pendente)   → Desenvolvimento module
+  +
+Orcamento (aprovado + converted)  → history entry 'conversao'
+```
+
+### Files
+
+| File | Role |
+|------|------|
+| `src/components/orcamentos/ConversaoProducaoModal.tsx` | Confirmation UI + coordination logic |
+| `src/contexts/OrcamentosContext.tsx` | `registrarConversao()` action |
+| `src/contexts/DesenvolvimentoContext.tsx` | `criarSolicitacao()` now returns `SolicitacaoProducao` |
+| `src/types/orcamentos.ts` | `'conversao'` history type; `convertidoParaProducao`, `dataConversao`, `responsavelConversao`; conversion analytics |
+| `src/types/desenvolvimento.ts` | `origem`, `origemId`, `numeroOrigem` on `SolicitacaoProducao`; `pecaId`, `conjuntoId`, `maquinaId`, `unidade` on `PecaSolicitacao` |
+
+### Conversion rules
+
+| Condition | Result |
+|-----------|--------|
+| `status !== 'aprovado'` | Button hidden — conversion blocked |
+| `!canEdit('orcamentos')` | Button hidden — permission denied |
+| `convertidoParaProducao === true` | Button shows "Ver Conversão" in success style; modal shows already-converted notice |
+| `convertidoParaProducao !== true` | Button shows "Converter para Produção"; modal shows preview + confirmation |
+
+### OS number derivation
+
+```typescript
+numeroOS = `OS:CONV-${orcamento.numero.replace('ORC-', '')}`
+// ORC-2026-00001 → OS:CONV-2026-00001
+```
+
+### Item transfer mapping
+
+| OrcamentoItem field | PecaSolicitacao field | Notes |
+|---------------------|-----------------------|-------|
+| `codigo` | `codigo` | Falls back to first 30 chars of `descricao` if blank |
+| `descricao` | `descricao` | Preserved verbatim |
+| `quantidade` | `quantidade` + `osDistribuicao[0].quantidade` | Entire qty in single OS allocation |
+| `unidade` | `unidade` | Optional field added to PecaSolicitacao |
+| `pecaId` | `pecaId` | Traceability FK → Peças |
+| `conjuntoId` | `conjuntoId` | Traceability FK → Conjuntos |
+| `maquinaId` | `maquinaId` | Traceability FK → Máquinas |
+| `observacoes` | `observacoes` | |
+| — | `material` | Blank — Engineering fills in |
+| — | `espessura` | 0 — Engineering fills in |
+| — | `processos` | `[]` — Engineering assigns sectors |
+
+### Traceability
+
+```
+Orcamento.solicitacaoProducaoId  ─────────────────────► SolicitacaoProducao.id
+Orcamento.id  ◄──────────────────────────────────────── SolicitacaoProducao.origemId
+Orcamento.numero ◄───────────────────────────────────── SolicitacaoProducao.numeroOrigem
+```
+
+Future navigation:
+- **Orçamento → Abrir Solicitação**: `router.push('/desenvolvimento?sol=' + orcamento.solicitacaoProducaoId)`
+- **Solicitação → Abrir Orçamento**: `router.push('/orcamentos?id=' + solicitacao.origemId)`
+
+### Audit entry
+
+```typescript
+// Written to Orcamento.historico on conversion:
+{
+  tipo:     'conversao',
+  descricao: 'Convertido para solicitação de produção — OS:CONV-2026-00001',
+  usuario:  responsavelNome,
+  timestamp: new Date(),
+}
+```
+
+History icon: `Factory` (Lucide). History colour: `text-primary`.
+
+### New Orcamento fields (Phase 4)
+
+| Field | Type | Set when |
+|-------|------|----------|
+| `convertidoParaProducao` | `boolean?` | `true` after `registrarConversao()` |
+| `dataConversao` | `Date?` | `new Date()` on conversion |
+| `responsavelConversao` | `string?` | Logged-in user name |
+| `solicitacaoProducaoId` | `string?` | ID of created `SolicitacaoProducao` |
+
+### New analytics fields (Phase 4)
+
+| Field | Computation |
+|-------|-------------|
+| `convertidos` | `orcamentos.filter(o => o.convertidoParaProducao).length` |
+| `conversoesNoMes` | Conversions where `dataConversao` is in current calendar month |
+| `pendenteConversao` | `aprovados.filter(o => !o.convertidoParaProducao).length` |
+
+### Future extension hooks (Phase 5+)
+
+| Hook | Location | Future use |
+|------|----------|-----------|
+| `[HOOK:ENGENHARIA_GATE]` | `ConversaoProducaoModal` | Require engineering approval before conversion |
+| `[HOOK:ESTRUTURA_AUTO]` | `buildPecas()` | Auto-generate `PecaSolicitacao[]` from `Conjunto` BOM |
+| `[HOOK:CUSTO_CALC]` | `buildPecas()` | Populate `custoMaterial`/`custoMaoObra` per item |
+| `[HOOK:MAQUINA_ALLOC]` | `criarSolicitacao()` input | Auto-allocate machines from `maquinaId` references |
+| `[HOOK:EMAIL_NOTIFY]` | After `registrarConversao()` | Email PCP team via SendGrid/Resend |
+
+### Supabase future tables
+
+```sql
+-- New column on orcamentos table:
+ALTER TABLE orcamentos ADD COLUMN convertido_para_producao BOOLEAN DEFAULT FALSE;
+ALTER TABLE orcamentos ADD COLUMN data_conversao TIMESTAMPTZ;
+ALTER TABLE orcamentos ADD COLUMN responsavel_conversao TEXT;
+ALTER TABLE orcamentos ADD COLUMN solicitacao_producao_id UUID REFERENCES solicitacoes_producao(id);
+
+-- New columns on solicitacoes_producao table:
+ALTER TABLE solicitacoes_producao ADD COLUMN origem TEXT DEFAULT 'manual';
+ALTER TABLE solicitacoes_producao ADD COLUMN origem_id UUID REFERENCES orcamentos(id);
+ALTER TABLE solicitacoes_producao ADD COLUMN numero_origem TEXT;
+
+-- New columns on solicitacao_itens (PecaSolicitacao):
+ALTER TABLE solicitacao_itens ADD COLUMN unidade TEXT;
+ALTER TABLE solicitacao_itens ADD COLUMN peca_id UUID REFERENCES pecas(id);
+ALTER TABLE solicitacao_itens ADD COLUMN conjunto_id UUID REFERENCES conjuntos(id);
+ALTER TABLE solicitacao_itens ADD COLUMN maquina_id UUID REFERENCES maquinas(id);
+
+-- Future: conversion_log table for analytics
+CREATE TABLE conversion_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  orcamento_id UUID REFERENCES orcamentos(id),
+  solicitacao_id UUID REFERENCES solicitacoes_producao(id),
+  responsavel TEXT,
+  converted_at TIMESTAMPTZ DEFAULT NOW(),
+  empresa_id UUID
+);
+```

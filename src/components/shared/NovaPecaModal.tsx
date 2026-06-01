@@ -13,7 +13,10 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/toast'
 import { BITOLAS, getBitolaEspessura, formatEspessura } from '@/lib/pecas/bitolaMap'
 import { nextPartSequence, generatePartCode, isCodeDuplicate } from '@/lib/pecas/codeGenerator'
+import { TemposIndustriaisSection } from '@/components/shared/TemposIndustriaisSection'
+import { EMPTY_TEMPOS } from '@/types/tempos'
 import type { Peca } from '@/types'
+import type { TemposPecaValues } from '@/types/tempos'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +85,7 @@ export function NovaPecaModal({ open, onOpenChange, existingPecas, onSave }: Nov
   const [form, setForm]           = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors]       = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [tempos, setTempos]       = useState<TemposPecaValues>(EMPTY_TEMPOS)
 
   const nextSeq       = useMemo(() => nextPartSequence(existingPecas), [existingPecas])
   const generatedCode = useMemo(
@@ -95,7 +99,7 @@ export function NovaPecaModal({ open, onOpenChange, existingPecas, onSave }: Nov
   const espessuraAuto = useMemo(() => getBitolaEspessura(form.bitola), [form.bitola])
 
   useEffect(() => {
-    if (open) { setForm(EMPTY_FORM); setErrors({}); setIsLoading(false) }
+    if (open) { setForm(EMPTY_FORM); setErrors({}); setIsLoading(false); setTempos(EMPTY_TEMPOS) }
   }, [open])
 
   function set(field: keyof FormState, value: string) {
@@ -136,6 +140,14 @@ export function NovaPecaModal({ open, onOpenChange, existingPecas, onSave }: Nov
       arquivo3d:      '',
       planoDobra:     '',
       atualizadoEm:   new Date().toISOString(),
+      // Phase 5.5: Industrial times (0 = not set, stored as undefined if zero)
+      tempoDesenvolvimentoMin: tempos.tempoDesenvolvimentoMin || undefined,
+      tempoProgramacaoMin:     tempos.tempoProgramacaoMin     || undefined,
+      tempoCorteMin:           tempos.tempoCorteMin           || undefined,
+      tempoDobraMin:           tempos.tempoDobraMin           || undefined,
+      tempoSoldaMin:           tempos.tempoSoldaMin           || undefined,
+      tempoPinturaMin:         tempos.tempoPinturaMin         || undefined,
+      tempoMontagemMin:        tempos.tempoMontagemMin        || undefined,
     }
 
     onSave(newPeca)
@@ -316,6 +328,12 @@ export function NovaPecaModal({ open, onOpenChange, existingPecas, onSave }: Nov
               <Input value={form.codigoSistema} onChange={(e) => set('codigoSistema', e.target.value)} placeholder="Ex: SYS-SP-100" className="font-mono" />
             </Field>
           </div>
+
+          {/* ── Tempos Industriais (Phase 5.5) ── */}
+          <TemposIndustriaisSection
+            tempos={tempos}
+            onChange={setTempos}
+          />
 
         </DialogBody>
 

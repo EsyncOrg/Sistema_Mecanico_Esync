@@ -47,6 +47,14 @@ interface OrcamentosContextValue {
   removerItem:    (orcamentoId: string, itemId: string) => void
   atualizarItem:  (orcamentoId: string, itemId: string, changes: Partial<OrcamentoItem>) => void
 
+  // ── Phase 4: Production conversion ───────────────────────────────────────
+  /**
+   * Records a completed conversion on the orçamento.
+   * Called AFTER the SolicitacaoProducao has been created in DesenvolvimentoContext,
+   * so the caller provides the resulting solicitacaoProducaoId.
+   */
+  registrarConversao: (orcamentoId: string, solicitacaoProducaoId: string, responsavelNome: string) => void
+
   // ── Analytics (computed) ──────────────────────────────────────────────────
   analytics: OrcamentosAnalytics
 
@@ -74,6 +82,7 @@ const OrcamentosContext = createContext<OrcamentosContextValue>({
   adicionarItem:       () => {},
   removerItem:         () => {},
   atualizarItem:       () => {},
+  registrarConversao:  () => {},
   analytics:           {
     totalOrcamentos:    0,
     emElaboracao:       0,
@@ -86,6 +95,9 @@ const OrcamentosContext = createContext<OrcamentosContextValue>({
     valorTotalEnviado:  0,
     taxaAprovacao:      0,
     ticketMedio:        0,
+    convertidos:        0,
+    conversoesNoMes:    0,
+    pendenteConversao:  0,
   },
   filtros:   { status: 'todos' },
   setFiltros: () => {},
@@ -295,6 +307,31 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
     [mutate]
   )
 
+  // ── Phase 4: conversion ───────────────────────────────────────────────────
+
+  const registrarConversao = useCallback(
+    (orcamentoId: string, solicitacaoProducaoId: string, responsavelNome: string) => {
+      mutate(orcamentoId, (o) => ({
+        ...o,
+        solicitacaoProducaoId,
+        convertidoParaProducao:  true,
+        dataConversao:           new Date(),
+        responsavelConversao:    responsavelNome,
+        atualizadoEm:            new Date(),
+        historico: [
+          ...o.historico,
+          histEntry(
+            orcamentoId,
+            'conversao',
+            `Convertido para solicitação de produção — OS:CONV-${o.numero.replace('ORC-', '')}`,
+            responsavelNome,
+          ),
+        ],
+      }))
+    },
+    [mutate]
+  )
+
   // ── Analytics ─────────────────────────────────────────────────────────────
 
   const analytics = useMemo((): OrcamentosAnalytics => {
@@ -303,6 +340,16 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
     const decididos  = orcamentos.filter((o) => ['aprovado', 'reprovado'].includes(o.status))
     const valAprov   = aprovados.reduce((s, o) => s + o.valorTotal, 0)
     const valEnv     = enviados.reduce((s,  o) => s + o.valorTotal, 0)
+
+    // Phase 4 conversion analytics
+    const convertidos    = orcamentos.filter((o) => o.convertidoParaProducao === true)
+    const now            = new Date()
+    const conversoesNoMes = convertidos.filter((o) => {
+      const d = o.dataConversao
+      return d != null && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    const pendenteConversao = aprovados.filter((o) => !o.convertidoParaProducao)
+
     return {
       totalOrcamentos:    orcamentos.length,
       emElaboracao:       orcamentos.filter((o) => o.status === 'em_elaboracao').length,
@@ -317,6 +364,9 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
         ? Math.round((aprovados.length / decididos.length) * 100)
         : 0,
       ticketMedio:        aprovados.length > 0 ? valAprov / aprovados.length : 0,
+      convertidos:        convertidos.length,
+      conversoesNoMes:    conversoesNoMes.length,
+      pendenteConversao:  pendenteConversao.length,
     }
   }, [orcamentos])
 
@@ -357,6 +407,7 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
       adicionarItem,
       removerItem,
       atualizarItem,
+      registrarConversao,
       analytics,
       filtros,
       setFiltros,

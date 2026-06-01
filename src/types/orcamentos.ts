@@ -38,6 +38,7 @@ export type TipoHistoricoOrcamento =
   | 'cancelamento'
   | 'revisao'
   | 'comentario'
+  | 'conversao'   // Phase 4: orçamento → solicitação de produção
 
 // ─── Cliente Resumo ───────────────────────────────────────────────────────────
 // Lightweight client reference embedded in the quotation.
@@ -150,9 +151,16 @@ export interface Orcamento {
   // ── Future ERP Integration Points ─────────────────────────────────────────
   // These IDs link to other modules. Null until the relationship is activated.
   conjuntoIds: string[]            // Conjuntos referenced in this quote
-  solicitacaoProducaoId?: string   // → Desenvolvimento: created when approved
+  solicitacaoProducaoId?: string   // → Desenvolvimento: created on Phase 4 conversion
   programacaoId?: string           // → Programação: created when in production
   dashboardAlertId?: string        // → Alert system reference
+
+  // ── Phase 4: Production conversion metadata ────────────────────────────────
+  convertidoParaProducao?: boolean  // true after successful conversion
+  dataConversao?: Date              // timestamp of conversion
+  responsavelConversao?: string     // user who triggered the conversion
+  // Future Phase 5: engenharia approval before conversion
+  // aprovacaoEngenhariaId?: string
 
   // ── Financial ─────────────────────────────────────────────────────────────
   valorTotal: number               // sum of all itens.valorTotal
@@ -236,7 +244,15 @@ export interface OrcamentosAnalytics {
   valorTotalEnviado: number
   taxaAprovacao: number        // 0–100 %
   ticketMedio: number          // average value of approved quotes
-  // Future: por periodo, por cliente, por responsavel, curva ABC
+
+  // ── Phase 4: Conversion analytics ─────────────────────────────────────────
+  /** Total approved quotes already converted to a production request */
+  convertidos: number
+  /** Conversions performed in the current calendar month */
+  conversoesNoMes: number
+  /** Approved quotes not yet converted — commercial pipeline waiting for production */
+  pendenteConversao: number
+  // Future Phase 5: per-client conversion rate, average conversion time
 }
 
 // ─── Filter / Search ──────────────────────────────────────────────────────────
