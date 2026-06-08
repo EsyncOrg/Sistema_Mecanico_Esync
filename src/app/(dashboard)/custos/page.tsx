@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Check, X, Save,
   History, Package, Cpu, Users, BarChart3, Zap,
   RefreshCw, ChevronDown, ChevronUp, CheckCircle2, Package2,
-  Settings,
+  Settings, Settings2, Filter,
 } from 'lucide-react'
 import { PageHeader }     from '@/components/shared/PageHeader'
 import { PermissionGate } from '@/components/shared/PermissionGate'
@@ -19,13 +19,18 @@ import { toast }          from '@/lib/toast'
 import { useAuth }        from '@/contexts/AuthContext'
 import { useCustos }      from '@/contexts/CustosContext'
 import { useCustosPecas } from '@/contexts/CustosPecasContext'
-import { derivarValorKg } from '@/lib/custos/engine'
+import { useConfiguracoesFabricacao } from '@/contexts/ConfiguracoesFabricacaoContext'
+import { MaterialModal }  from '@/components/custos/MaterialModal'
+import { ConfiguracaoFabricacaoModal } from '@/components/custos/ConfiguracaoFabricacaoModal'
+// derivarValorKg is used in MaterialModal (not here)
 import { mockPecas }      from '@/mocks/pecas'
 import type {
   CentroCusto, CustoMaterial, CustoMaoDeObra,
-  MaquinaCustos, PerfilPrecificacao,
+  MaquinaCustos, PerfilPrecificacao, TipoMaterial,
 } from '@/types/custos'
+import { TIPO_MATERIAL_LABELS } from '@/types/custos'
 import type { CustoPecaBreakdown } from '@/types/custos-pecas'
+import type { Peca } from '@/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -212,6 +217,129 @@ function CustoBreakdownPanel({
   )
 }
 
+// ─── Configurations Comparison Panel ─────────────────────────────────────────
+
+function ConfiguracoesPainel({
+  configs, breakdowns, materiais: mats, userCanEdit,
+  onAdd, onEdit, onDelete, onToggle,
+}: {
+  configs: import('@/types/configuracoes-fabricacao').ConfiguracaoFabricacao[]
+  breakdowns: CustoPecaBreakdown[]
+  materiais: CustoMaterial[]
+  userCanEdit: boolean
+  onAdd: () => void
+  onEdit: (cfg: import('@/types/configuracoes-fabricacao').ConfiguracaoFabricacao) => void
+  onDelete: (id: string) => void
+  onToggle: (id: string) => void
+}) {
+  const [expandedCfgId, setExpandedCfgId] = React.useState<string | null>(null)
+
+  const sorted = [...configs].sort((a, b) => a.codigo.localeCompare(b.codigo))
+
+  return (
+    <div className="mt-2 rounded-xl border border-primary/15 bg-card p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings2 size={13} className="text-primary" />
+          <span className="text-xs font-bold text-foreground">Configurações de Fabricação</span>
+          <span className="text-[10px] text-muted-foreground">({sorted.length})</span>
+        </div>
+        {userCanEdit && (
+          <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onAdd}>
+            <Plus size={11} /> Adicionar
+          </Button>
+        )}
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-2">
+          Nenhuma configuração — clique em &ldquo;Adicionar&rdquo; para criar a primeira.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/30 border-b border-border">
+                {['Config', 'Material', 'Processos', 'Custo Total', 'Status', ''].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((cfg) => {
+                const bd       = breakdowns.find((b) => b.configuracaoId === cfg.id)
+                const mat      = mats.find((m) => m.id === cfg.materialId)
+                const isExpand = expandedCfgId === cfg.id
+                const processes = [cfg.dobra && 'Dobra', cfg.solda && 'Solda', cfg.pintura && 'Pintura', cfg.montagem && 'Montagem']
+                  .filter(Boolean).join(' · ') || '—'
+                return (
+                  <React.Fragment key={cfg.id}>
+                    <tr className={cn(
+                      'border-b border-border last:border-0 transition-colors cursor-pointer',
+                      isExpand ? 'bg-primary/5' : 'hover:bg-muted/10',
+                      !cfg.ativo && 'opacity-50',
+                    )} onClick={() => setExpandedCfgId(isExpand ? null : cfg.id)}>
+                      <td className="px-3 py-2 font-mono font-bold text-accent">{cfg.codigo}</td>
+                      <td className="px-3 py-2 text-muted-foreground max-w-[140px] truncate">
+                        {mat?.descricao ?? mat?.material ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{processes}</td>
+                      <td className="px-3 py-2 font-bold text-foreground tabular-nums whitespace-nowrap">
+                        {bd && bd.custoTotal > 0 ? fmtBRL(bd.custoTotal) : <span className="text-muted-foreground font-normal">—</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={cn(
+                          'inline-flex h-4 items-center rounded-full px-1.5 text-[9px] font-semibold',
+                          cfg.ativo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                        )}>
+                          {cfg.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                          {isExpand ? <ChevronUp size={12} className="text-muted-foreground mr-1" /> : <ChevronDown size={12} className="text-muted-foreground mr-1" />}
+                          {userCanEdit && (
+                            <>
+                              <button onClick={() => onEdit(cfg)}
+                                className="p-1 text-muted-foreground hover:text-foreground transition-colors" title="Editar">
+                                <Pencil size={11} />
+                              </button>
+                              <button onClick={() => onToggle(cfg.id)}
+                                className="p-1 text-muted-foreground hover:text-foreground transition-colors" title={cfg.ativo ? 'Desativar' : 'Ativar'}>
+                                <Settings size={11} />
+                              </button>
+                              <button onClick={() => onDelete(cfg.id)}
+                                className="p-1 text-muted-foreground hover:text-destructive transition-colors" title="Remover">
+                                <Trash2 size={11} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Inline breakdown */}
+                    <AnimatePresence>
+                      {isExpand && bd && (
+                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                          <td colSpan={6} className="px-3 pb-3 pt-0 bg-primary/3">
+                            <CustoBreakdownPanel bd={bd} onSnapshot={() => {}} canEdit={false} />
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CustosPage() {
@@ -220,7 +348,7 @@ export default function CustosPage() {
     centros, materiais, maoDeObra, maquinasCustos, perfis, historico,
     analytics,
     atualizarCentro,
-    criarMaterial, atualizarMaterial, excluirMaterial,
+    atualizarMaterial, excluirMaterial,
     atualizarMaoDeObra,
     atualizarCustoMaquina,
     criarPerfil, atualizarPerfil, excluirPerfil,
@@ -235,6 +363,14 @@ export default function CustosPage() {
     forcarSnapshot,
     atualizarConfig,
   } = useCustosPecas()
+
+  const {
+    excluirConfiguracao,
+    toggleAtivo,
+    getBreakdownsByPeca,
+    getByPeca,
+    analytics: cfgAnalytics,
+  } = useConfiguracoesFabricacao()
 
   const userCanEdit = canEdit('custos')
 
@@ -282,31 +418,14 @@ export default function CustosPage() {
     setEditing(null)
   }
 
-  // ── New material / perfil form ────────────────────────────────────────────────
-  const [showNewMaterial, setShowNewMaterial] = useState(false)
-  const [showNewPerfil,   setShowNewPerfil]   = useState(false)
+  // ── Perfil form (Precificação tab) ──────────────────────────────────────────
+  const [showNewPerfil, setShowNewPerfil] = useState(false)
 
-  // New material fields
-  const [newMat, setNewMat] = useState({
-    material: '', bitola: '', espessura: 0, pesoChapa: 0,
-    valorChapa: 0, fornecedor: '',
-  })
   // New perfil fields
   const [newPerf, setNewPerf] = useState({
     nome: '', descricao: '', margemLucroPercentual: 25,
     comissaoPercentual: 5, impostosPercentual: 12,
   })
-
-  function handleSaveMaterial() {
-    if (!newMat.material.trim() || newMat.pesoChapa <= 0 || newMat.valorChapa <= 0) {
-      toast('error', 'Preencha material, peso e valor da chapa')
-      return
-    }
-    criarMaterial({ ...newMat, ativo: true, dataAtualizacao: new Date() })
-    setNewMat({ material: '', bitola: '', espessura: 0, pesoChapa: 0, valorChapa: 0, fornecedor: '' })
-    setShowNewMaterial(false)
-    toast('success', 'Material cadastrado')
-  }
 
   function handleSavePerfil() {
     if (!newPerf.nome.trim()) { toast('error', 'Informe o nome do perfil'); return }
@@ -315,6 +434,17 @@ export default function CustosPage() {
     setShowNewPerfil(false)
     toast('success', 'Perfil criado')
   }
+
+  // ── Material catalog ─────────────────────────────────────────────────────────
+  const [matSearch,        setMatSearch]        = useState('')
+  const [matTipoFilter,    setMatTipoFilter]    = useState<string>('todos')
+  const [matModalOpen,     setMatModalOpen]     = useState(false)
+  const [matModalEditing,  setMatModalEditing]  = useState<CustoMaterial | null>(null)
+
+  // ── Configurações de Fabricação ───────────────────────────────────────────────
+  const [cfgModalOpen,    setCfgModalOpen]    = useState(false)
+  const [cfgModalPeca,    setCfgModalPeca]    = useState<Peca | null>(null)
+  const [cfgModalEditing, setCfgModalEditing] = useState<import('@/types/configuracoes-fabricacao').ConfiguracaoFabricacao | null>(null)
 
   // ── Custos das Peças ─────────────────────────────────────────────────────────
   const [expandedPecaId, setExpandedPecaId] = useState<string | null>(null)
@@ -511,121 +641,133 @@ export default function CustosPage() {
           )}
 
           {/* ── Materiais ────────────────────────────────────────────────────── */}
-          {activeTab === 'materiais' && (
-            <Card>
-              <CardHeader className="pb-3">
-                <SectionHeader
-                  title="Custos de Materiais"
-                  description="Custo por kg calculado automaticamente a partir do preço da chapa"
-                  action={
-                    userCanEdit && (
-                      <Button size="sm" className="gap-1.5" onClick={() => setShowNewMaterial((v) => !v)}>
-                        <Plus size={13} /> Novo Material
-                      </Button>
-                    )
-                  }
-                />
-                {/* New material form */}
-                <AnimatePresence>
-                  {showNewMaterial && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden">
-                      <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-                        <p className="text-xs font-semibold text-primary">Novo material</p>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Material *</label>
-                            <Input className="mt-1 h-8 text-xs" placeholder="ex: Aço Carbono 1020"
-                              value={newMat.material} onChange={(e) => setNewMat((p) => ({ ...p, material: e.target.value }))} />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Bitola</label>
-                            <Input className="mt-1 h-8 text-xs" placeholder="ex: 3mm"
-                              value={newMat.bitola} onChange={(e) => setNewMat((p) => ({ ...p, bitola: e.target.value }))} />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Espessura (mm) *</label>
-                            <Input type="number" className="mt-1 h-8 text-xs" placeholder="3"
-                              value={newMat.espessura || ''} onChange={(e) => setNewMat((p) => ({ ...p, espessura: parseFloat(e.target.value) || 0 }))} />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Peso Chapa (kg) *</label>
-                            <Input type="number" className="mt-1 h-8 text-xs" placeholder="106"
-                              value={newMat.pesoChapa || ''} onChange={(e) => setNewMat((p) => ({ ...p, pesoChapa: parseFloat(e.target.value) || 0 }))} />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Valor da Chapa (R$) *</label>
-                            <Input type="number" className="mt-1 h-8 text-xs" placeholder="1060"
-                              value={newMat.valorChapa || ''} onChange={(e) => setNewMat((p) => ({ ...p, valorChapa: parseFloat(e.target.value) || 0 }))} />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-semibold text-muted-foreground">Fornecedor</label>
-                            <Input className="mt-1 h-8 text-xs" placeholder="ex: Aços Villares"
-                              value={newMat.fornecedor} onChange={(e) => setNewMat((p) => ({ ...p, fornecedor: e.target.value }))} />
-                          </div>
-                        </div>
-                        {newMat.pesoChapa > 0 && newMat.valorChapa > 0 && (
-                          <p className="text-xs text-success font-semibold">
-                            Valor/kg calculado: {fmtBRL(derivarValorKg(newMat.valorChapa, newMat.pesoChapa))}/kg
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <Button size="sm" className="gap-1.5" onClick={handleSaveMaterial}><Save size={12} /> Salvar</Button>
-                          <Button size="sm" variant="outline" onClick={() => setShowNewMaterial(false)}>Cancelar</Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/30">
-                        {['Material', 'Bitola', 'Peso Chapa', 'Valor Chapa', 'Valor/kg (auto)', 'Fornecedor', 'Atualizado', ''].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {materiais.filter((m) => m.ativo).map((m, i) => (
-                        <motion.tr key={m.id}
-                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                          className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
-                        >
-                          <td className="px-4 py-3 font-medium text-foreground">{m.material}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{m.bitola ?? `${m.espessura}mm`}</td>
-                          <td className="px-4 py-3 text-muted-foreground tabular-nums">{m.pesoChapa} kg</td>
-                          <td className="px-4 py-3 tabular-nums font-mono">
-                            <EditableCell rowId={m.id} field="valorChapa" value={m.valorChapa} format={fmtBRL} entityType="material" />
-                          </td>
-                          <td className="px-4 py-3 font-semibold tabular-nums text-primary">
-                            {fmtBRL(m.valorKg)}/kg
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{m.fornecedor ?? '—'}</td>
-                          <td className="px-4 py-3 text-xs whitespace-nowrap">
-                            <span className={cn(isOutdated(m.dataAtualizacao) ? 'text-warning font-semibold' : 'text-muted-foreground')}>
-                              {isOutdated(m.dataAtualizacao) && <AlertTriangle size={11} className="inline mr-1" />}
-                              {fmtDate(m.dataAtualizacao)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            {userCanEdit && (
-                              <button onClick={() => excluirMaterial(m.id)}
-                                className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Remover">
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
+          {activeTab === 'materiais' && (() => {
+            const allTipos = Array.from(new Set(materiais.map((m) => m.tipoMaterial).filter(Boolean))) as TipoMaterial[]
+            const filtered = materiais.filter((m) => {
+              if (!m.ativo) return false
+              if (matSearch && !((m.descricao ?? m.material).toLowerCase().includes(matSearch.toLowerCase()) || m.bitola?.toLowerCase().includes(matSearch.toLowerCase()) || m.fornecedor?.toLowerCase().includes(matSearch.toLowerCase()))) return false
+              if (matTipoFilter !== 'todos' && m.tipoMaterial !== matTipoFilter) return false
+              return true
+            })
+            const outdated = materiais.filter((m) => m.ativo && isOutdated(m.dataAtualizacao)).length
+            return (
+              <div className="space-y-4">
+                {/* Analytics KPIs */}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: 'Materiais Ativos',   value: materiais.filter(m=>m.ativo).length,   icon: Package,       colorClass:'text-primary',    bgClass:'bg-primary/10',  ringClass:'ring-primary/20'  },
+                    { label: 'Tipos de Material',  value: allTipos.length,                        icon: Filter,        colorClass:'text-accent',     bgClass:'bg-accent/10',   ringClass:'ring-accent/20'   },
+                    { label: 'Preço Médio/kg',     value: fmtBRL(materiais.filter(m=>m.ativo).reduce((s,m)=>s+m.valorKg,0)/(materiais.filter(m=>m.ativo).length||1)), icon: TrendingUp, colorClass:'text-success', bgClass:'bg-success/10', ringClass:'ring-success/20' },
+                    { label: 'Desatualizados',     value: outdated,                               icon: AlertTriangle,  colorClass: outdated > 0 ? 'text-warning' : 'text-muted-foreground', bgClass: outdated > 0 ? 'bg-warning/10' : 'bg-muted/60', ringClass: outdated > 0 ? 'ring-warning/20' : 'ring-border/50' },
+                  ].map((card, i) => <KpiCard key={card.label} {...card} delay={i * 0.05} />)}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <SectionHeader
+                      title="Catálogo de Materiais"
+                      description="Materiais disponíveis para configurações de fabricação"
+                      action={
+                        userCanEdit && (
+                          <Button size="sm" className="gap-1.5" onClick={() => { setMatModalEditing(null); setMatModalOpen(true) }}>
+                            <Plus size={13} /> Novo Material
+                          </Button>
+                        )
+                      }
+                    />
+                    {/* Search + filter bar */}
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        className="h-8 text-xs flex-1"
+                        placeholder="Pesquisar material, bitola, fornecedor…"
+                        value={matSearch}
+                        onChange={(e) => setMatSearch(e.target.value)}
+                      />
+                      <select
+                        className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                        value={matTipoFilter}
+                        onChange={(e) => setMatTipoFilter(e.target.value)}
+                      >
+                        <option value="todos">Todos os tipos</option>
+                        {allTipos.map((t) => (
+                          <option key={t} value={t}>{TIPO_MATERIAL_LABELS[t]}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/30">
+                            {['Código', 'Material', 'Tipo', 'Esp.', 'Dimensões', 'Peso', 'Valor Chapa', 'Valor/kg', 'Fornecedor', 'Atualizado', ''].map((h) => (
+                              <th key={h} className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={11} className="px-4 py-8 text-center text-xs text-muted-foreground">Nenhum material encontrado</td></tr>
+                          ) : filtered.map((m, i) => (
+                            <motion.tr key={m.id}
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.025 }}
+                              className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
+                            >
+                              <td className="px-3 py-3 font-mono text-[11px] text-accent font-bold">{m.codigo ?? '—'}</td>
+                              <td className="px-3 py-3 font-medium text-foreground text-xs max-w-[160px]">
+                                <div className="truncate">{m.descricao ?? m.material}</div>
+                              </td>
+                              <td className="px-3 py-3">
+                                {m.tipoMaterial ? (
+                                  <span className="inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold bg-muted text-muted-foreground whitespace-nowrap">
+                                    {TIPO_MATERIAL_LABELS[m.tipoMaterial]}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="px-3 py-3 text-xs tabular-nums text-muted-foreground">{m.espessura}mm</td>
+                              <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                                {m.larguraChapa && m.comprimentoChapa ? `${m.larguraChapa}×${m.comprimentoChapa}` : '—'}
+                              </td>
+                              <td className="px-3 py-3 text-xs tabular-nums text-muted-foreground">{m.pesoChapa}kg</td>
+                              <td className="px-3 py-3 tabular-nums font-mono text-xs">
+                                <EditableCell rowId={m.id} field="valorChapa" value={m.valorChapa} format={fmtBRL} entityType="material" />
+                              </td>
+                              <td className="px-3 py-3 font-semibold tabular-nums text-primary text-xs whitespace-nowrap">
+                                {fmtBRL(m.valorKg)}/kg
+                              </td>
+                              <td className="px-3 py-3 text-xs text-muted-foreground">{m.fornecedor ?? '—'}</td>
+                              <td className="px-3 py-3 text-xs whitespace-nowrap">
+                                <span className={cn(isOutdated(m.dataAtualizacao) ? 'text-warning font-semibold' : 'text-muted-foreground')}>
+                                  {isOutdated(m.dataAtualizacao) && <AlertTriangle size={10} className="inline mr-0.5" />}
+                                  {fmtDate(m.dataAtualizacao)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3">
+                                <div className="flex items-center gap-1">
+                                  {userCanEdit && (
+                                    <>
+                                      <button onClick={() => { setMatModalEditing(m); setMatModalOpen(true) }}
+                                        className="text-muted-foreground hover:text-foreground transition-colors p-1" title="Editar">
+                                        <Pencil size={12} />
+                                      </button>
+                                      <button onClick={() => excluirMaterial(m.id)}
+                                        className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Remover">
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )
+          })()}
 
           {/* ── Mão de Obra ──────────────────────────────────────────────────── */}
           {activeTab === 'mao_obra' && (
@@ -1034,7 +1176,7 @@ export default function CustosPage() {
                     value: fmtBRL(pecasAnalytics.custoTotalCatalogo),
                     icon: Package2,
                     colorClass: 'text-success', bgClass: 'bg-success/10', ringClass: 'ring-success/20',
-                    sub: `maior componente: ${pecasAnalytics.maiorComponente}`,
+                    sub: `${cfgAnalytics.ativas} configs · maior: ${pecasAnalytics.maiorComponente}`,
                   },
                 ].map((card, i) => (
                   <KpiCard key={card.label} {...card} delay={i * 0.05} />
@@ -1054,15 +1196,17 @@ export default function CustosPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/30">
-                          {['Código', 'Descrição', 'Esp.', 'Peso', 'Material', 'Custo Total', 'Status', ''].map((h) => (
+                          {['Código', 'Descrição', 'Esp.', 'Peso', 'Material', 'Custo Total', 'Configs', 'Status', ''].map((h) => (
                             <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {breakdowns.map((bd, i) => {
-                          const peca      = mockPecas.find((p) => p.id === bd.pecaId)
-                          const isExpanded = expandedPecaId === bd.pecaId
+                          const peca       = mockPecas.find((p) => p.id === bd.pecaId)
+                          const pecaConfigs = peca ? getByPeca(peca.id) : []
+                          const pecaBDs     = peca ? getBreakdownsByPeca(peca.id) : []
+                          const isExpanded  = expandedPecaId === bd.pecaId
                           return (
                             <React.Fragment key={bd.pecaId}>
                               <motion.tr
@@ -1093,6 +1237,16 @@ export default function CustosPage() {
                                     : <span className="text-muted-foreground font-normal">—</span>
                                   }
                                 </td>
+                                {/* Configurations count badge */}
+                                <td className="px-4 py-3">
+                                  {pecaConfigs.length > 0 ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                                      <Settings2 size={9} /> {pecaConfigs.length}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground/50">—</span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-3">
                                   {bd.calculadoComSucesso ? (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full">
@@ -1113,17 +1267,59 @@ export default function CustosPage() {
                                 </td>
                               </motion.tr>
 
-                              {/* ── Expanded breakdown row ── */}
+                              {/* ── Expanded detail row ── */}
                               <AnimatePresence>
-                                {isExpanded && (
+                                {isExpanded && peca && (
                                   <motion.tr
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.15 }}
                                   >
-                                    <td colSpan={8} className="px-4 pb-5 pt-0 bg-primary/3">
+                                    <td colSpan={9} className="px-4 pb-5 pt-0 bg-primary/3">
+                                      {/* Show configurations panel when configs exist */}
+                                      {pecaConfigs.length > 0 && (
+                                        <ConfiguracoesPainel
+                                          configs={pecaConfigs}
+                                          breakdowns={pecaBDs}
+                                          materiais={materiais}
+                                          userCanEdit={userCanEdit}
+                                          onAdd={() => {
+                                            setCfgModalPeca(peca)
+                                            setCfgModalEditing(null)
+                                            setCfgModalOpen(true)
+                                          }}
+                                          onEdit={(cfg) => {
+                                            setCfgModalPeca(peca)
+                                            setCfgModalEditing(cfg)
+                                            setCfgModalOpen(true)
+                                          }}
+                                          onDelete={(id) => {
+                                            excluirConfiguracao(id)
+                                            toast('success', 'Configuração removida')
+                                          }}
+                                          onToggle={(id) => toggleAtivo(id)}
+                                        />
+                                      )}
+                                      {/* Legacy breakdown always shown */}
                                       <CustoBreakdownPanel bd={bd} onSnapshot={() => forcarSnapshot(bd.pecaId)} canEdit={userCanEdit} />
+                                      {/* Add config button for pieces without any config */}
+                                      {pecaConfigs.length === 0 && userCanEdit && (
+                                        <div className="mt-2 flex justify-center">
+                                          <Button
+                                            size="sm" variant="outline"
+                                            className="gap-1.5 text-xs h-7"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setCfgModalPeca(peca)
+                                              setCfgModalEditing(null)
+                                              setCfgModalOpen(true)
+                                            }}
+                                          >
+                                            <Settings2 size={11} /> Adicionar Configuração de Fabricação
+                                          </Button>
+                                        </div>
+                                      )}
                                     </td>
                                   </motion.tr>
                                 )}
@@ -1193,6 +1389,24 @@ export default function CustosPage() {
       </AnimatePresence>
 
     </div>
+
+    {/* ── Material Modal ─────────────────────────────────────────────────────── */}
+    <MaterialModal
+      open={matModalOpen}
+      onOpenChange={(v) => { setMatModalOpen(v); if (!v) setMatModalEditing(null) }}
+      editingMaterial={matModalEditing}
+    />
+
+    {/* ── Configuração de Fabricação Modal ──────────────────────────────────── */}
+    {cfgModalPeca && (
+      <ConfiguracaoFabricacaoModal
+        open={cfgModalOpen}
+        onOpenChange={(v) => { setCfgModalOpen(v); if (!v) { setCfgModalPeca(null); setCfgModalEditing(null) } }}
+        peca={cfgModalPeca}
+        editing={cfgModalEditing}
+      />
+    )}
+
     </PermissionGate>
   )
 }

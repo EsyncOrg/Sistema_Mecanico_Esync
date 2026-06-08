@@ -91,6 +91,12 @@ export interface OrcamentoItem {
 
   observacoes?: string
   posicao: number          // sort order within the quotation
+
+  // ── Phase 7: Assembly material selection cost ─────────────────────────────
+  // Set when this item (tipo='conjunto') has been costed via the material
+  // selector. Volatile — recalculated when materials/prices change.
+  // Future Supabase: stored in orcamento_itens.custo_calculado column.
+  custoCalculado?: number
 }
 
 // ─── Orçamento Revisão ────────────────────────────────────────────────────────

@@ -68,7 +68,13 @@ export interface PecaSolicitacao {
   pecaId?: string         // FK → Peças module
   conjuntoId?: string     // FK → Conjuntos module
   maquinaId?: string      // FK → Máquinas module
-  // Future Phase 5: custoMaterial, custoMaoObra, markupPercent
+
+  // ── Phase 7: Material selection traceability ──────────────────────────────
+  // Preserved from OrcamentoItemConfiguracao when converted from a quote.
+  // Tells production exactly which material and config was quoted.
+  materialId?: string              // FK → materiais.id (chosen at quotation time)
+  configuracaoFabricacaoId?: string // FK → configuracoes_fabricacao.id (optional)
+  // Future Phase 8: custoMaterial, custoProcesso for cost-of-production tracking
 }
 
 // ─── Future: Conjunto reference ───────────────────────────────────────────────

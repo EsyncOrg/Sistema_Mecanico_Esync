@@ -5,6 +5,7 @@ import type {
   MaquinaCustos,
   PerfilPrecificacao,
   HistoricoCusto,
+  TipoMaterial,
 } from '@/types/custos'
 
 const now  = new Date()
@@ -26,82 +27,60 @@ export const mockCentrosCusto: CentroCusto[] = [
 ]
 
 // ─── Custos de Materiais ──────────────────────────────────────────────────────
-// Sheet dimensions assumed 3000 × 1500 mm standard.
+// Phase 6.1: extended with full industrial catalog fields.
+// Sheet dimensions assumed 3000 × 1500 mm standard unless noted.
 // Weights are realistic market values (2026).
 
+function mat(
+  id: string,
+  codigo: string,
+  tipoMaterial: TipoMaterial,
+  material: string,
+  bitola: string,
+  espessura: number,
+  pesoChapa: number,
+  valorChapa: number,
+  fornecedor: string,
+  daysAgo: number,
+  ativo = true,
+): CustoMaterial {
+  return {
+    id,
+    codigo,
+    descricao: `${material} — Chapa ${bitola}`,
+    tipoMaterial,
+    material,
+    bitola,
+    espessura,
+    larguraChapa:    3000,
+    comprimentoChapa:1500,
+    pesoChapa,
+    valorChapa,
+    valorKg: Math.round((valorChapa / pesoChapa) * 100) / 100,
+    fornecedor,
+    dataAtualizacao: ago(daysAgo),
+    ativo,
+  }
+}
+
 export const mockCustosMateriais: CustoMaterial[] = [
-  {
-    id: 'mat-001',
-    material:       'Aço Carbono 1020',
-    bitola:         '3mm',
-    espessura:      3.0,
-    pesoChapa:      106.0,   // kg — 3m × 1.5m × 3mm × 7.85 g/cm³
-    valorChapa:     1_060.00,
-    valorKg:        10.00,   // R$ 10,00/kg
-    fornecedor:     'Aços Villares',
-    dataAtualizacao: ago(8),
-    ativo:          true,
-  },
-  {
-    id: 'mat-002',
-    material:       'Aço Carbono 1020',
-    bitola:         '6mm',
-    espessura:      6.0,
-    pesoChapa:      212.0,
-    valorChapa:     2_120.00,
-    valorKg:        10.00,
-    fornecedor:     'Aços Villares',
-    dataAtualizacao: ago(8),
-    ativo:          true,
-  },
-  {
-    id: 'mat-003',
-    material:       'Aço Inox 304',
-    bitola:         '3mm',
-    espessura:      3.0,
-    pesoChapa:      108.0,   // density 8.0 g/cm³
-    valorChapa:     4_320.00,
-    valorKg:        40.00,
-    fornecedor:     'Outokumpu',
-    dataAtualizacao: ago(12),
-    ativo:          true,
-  },
-  {
-    id: 'mat-004',
-    material:       'Aço Inox 316',
-    bitola:         '3mm',
-    espessura:      3.0,
-    pesoChapa:      108.0,
-    valorChapa:     5_400.00,
-    valorKg:        50.00,
-    fornecedor:     'Outokumpu',
-    dataAtualizacao: ago(35),   // > 30 days — marked outdated
-    ativo:          true,
-  },
-  {
-    id: 'mat-005',
-    material:       'Alumínio 6061',
-    bitola:         '3mm',
-    espessura:      3.0,
-    pesoChapa:      36.5,    // density 2.7 g/cm³
-    valorChapa:     1_825.00,
-    valorKg:        50.00,
-    fornecedor:     'Novelis',
-    dataAtualizacao: ago(40),   // > 30 days — marked outdated
-    ativo:          true,
-  },
-  {
-    id: 'mat-006',
-    material:       'Aço Carbono 1045',
-    bitola:         '6mm',
-    espessura:      6.0,
-    pesoChapa:      212.0,
-    valorChapa:     2_440.00,
-    valorKg:        11.50,
-    fornecedor:     'Gerdau',
-    dataAtualizacao: ago(4),
-    ativo:          true,
-  },
+  // ── Aço Carbono 1020 ──────────────────────────────────────────────────────
+  mat('mat-001','MAT-001','aco_carbono','Aço Carbono 1020','3mm', 3.0,106.0,1_060.00,'Aços Villares',8),
+  mat('mat-002','MAT-002','aco_carbono','Aço Carbono 1020','6mm', 6.0,212.0,2_120.00,'Aços Villares',8),
+  mat('mat-003','MAT-003','aco_carbono','Aço Carbono 1020','8mm', 8.0,283.0,2_971.50,'Aços Villares',20),
+  mat('mat-004','MAT-004','aco_carbono','Aço Carbono 1020','12mm',12.0,424.0,4_664.00,'Aços Villares',20),
+  // ── Aço Carbono 1045 ──────────────────────────────────────────────────────
+  mat('mat-005','MAT-005','aco_carbono','Aço Carbono 1045','6mm', 6.0,212.0,2_440.00,'Gerdau',4),
+  // ── Aço Inox ─────────────────────────────────────────────────────────────
+  mat('mat-006','MAT-006','aco_inox','Aço Inox 304','3mm',3.0,108.0,4_320.00,'Outokumpu',12),
+  mat('mat-007','MAT-007','aco_inox','Aço Inox 304','6mm',6.0,216.0,8_640.00,'Outokumpu',35),   // > 30d outdated
+  mat('mat-008','MAT-008','aco_inox','Aço Inox 316','3mm',3.0,108.0,5_400.00,'Outokumpu',35),   // > 30d outdated
+  // ── Aço Galvanizado ───────────────────────────────────────────────────────
+  mat('mat-009','MAT-009','aco_galvanizado','Aço Galvanizado Z275','3mm',3.0,107.0,1_391.00,'Usiminas',6),
+  mat('mat-010','MAT-010','aco_galvanizado','Aço Galvanizado Z275','6mm',6.0,214.0,2_782.00,'Usiminas',6),
+  // ── Alumínio ──────────────────────────────────────────────────────────────
+  mat('mat-011','MAT-011','aluminio','Alumínio 6061','3mm',3.0,36.5,1_825.00,'Novelis',40),      // > 30d outdated
+  mat('mat-012','MAT-012','aluminio','Alumínio 6061','6mm',6.0,73.0,3_650.00,'Novelis',40),      // > 30d outdated
 ]
 
 // ─── Custos de Mão de Obra ────────────────────────────────────────────────────

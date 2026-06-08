@@ -1,23 +1,23 @@
 // ─── Custos Module — Industrial Cost Architecture ─────────────────────────────
 //
 // This module is the pricing and cost foundation for the entire ERP.
-// It does NOT yet calculate real project costs — it establishes the
-// data model and calculation engine that future modules will consume.
 //
 // Flow:
 //   CentroCusto (hourly rates)
-//   CustoMaterial (raw material prices)
+//   CustoMaterial (raw material catalog + prices)
 //   CustoMaoDeObra (labor profiles + encargos)
 //   MaquinaCustos (per-machine running cost)
 //   PerfilPrecificacao (margin / tax / commission)
 //       ↓
-//   engine.ts (calcularCustoTotal, calcularPrecoVenda)
-//       ↓
-//   Future: CustoPeca, CustoConjunto, CustoOrcamento
+//   Phase 6   — engine.ts: calcularCustoPecaCompleto (legacy, piece → cost)
+//   Phase 6.1 — engine.ts: calcularCustoPecaComConfig (piece + config → cost)
+//   Phase 7   — CustoConjunto (assembly cost aggregation)
+//   Phase 8   — CustoOrcamento (quote cost via pricing profile)
 //
 // Supabase future tables:
-//   custos_centros, custos_materiais, custos_mao_obra,
-//   custos_maquinas, pricing_profiles, custos_historico
+//   custos_centros, materiais (upgraded), custos_mao_obra,
+//   custos_maquinas, pricing_profiles, custos_historico,
+//   configuracoes_fabricacao (Phase 6.1)
 
 // ─── Cost Center ──────────────────────────────────────────────────────────────
 
@@ -42,10 +42,56 @@ export interface CentroCusto {
   ultimaAtualizacao: Date
 }
 
-// ─── Raw material cost ────────────────────────────────────────────────────────
+// ─── Material type catalog ────────────────────────────────────────────────────
+// Phase 6.1: typed discriminant for filtering and reporting
+
+export type TipoMaterial =
+  | 'aco_carbono'
+  | 'aco_inox'
+  | 'aco_galvanizado'
+  | 'aco_ferramentas'
+  | 'aluminio'
+  | 'cobre'
+  | 'latao'
+  | 'outro'
+
+export const TIPO_MATERIAL_LABELS: Record<TipoMaterial, string> = {
+  aco_carbono:     'Aço Carbono',
+  aco_inox:        'Aço Inox',
+  aco_galvanizado: 'Aço Galvanizado',
+  aco_ferramentas: 'Aço Ferramenta',
+  aluminio:        'Alumínio',
+  cobre:           'Cobre',
+  latao:           'Latão',
+  outro:           'Outro',
+}
+
+// ─── Raw material cost (upgraded in Phase 6.1) ───────────────────────────────
+// Backward-compatible: all Phase 6.1 fields are optional so existing mock data
+// and consumers continue to work without modification.
+//
+// Future Supabase table: `materiais`
+//   id, codigo, descricao, tipo_material, espessura, largura_chapa,
+//   comprimento_chapa, peso_chapa, valor_chapa, valor_kg (GENERATED),
+//   fornecedor, ativo, criado_em, atualizado_em, empresa_id
 
 export interface CustoMaterial {
   id: string
+
+  // ── Phase 6.1: full catalog identification ──────────────────────────────────
+  /** Auto-generated code: "MAT-001". Optional for backward compat. */
+  codigo?: string
+  /** Human label: "Aço Carbono 1020 — Chapa 3mm". Optional for backward compat. */
+  descricao?: string
+  /** Material family discriminant. Optional for backward compat. */
+  tipoMaterial?: TipoMaterial
+  /** Standard sheet width in mm (default 3000). Optional for backward compat. */
+  larguraChapa?: number
+  /** Standard sheet length in mm (default 1500). Optional for backward compat. */
+  comprimentoChapa?: number
+  // [HOOK:SHEET_UTILIZATION] — Phase 6.5: larguraChapa × comprimentoChapa → utilization %
+
+  // ── Phase 5 original fields (preserved) ─────────────────────────────────────
   /** e.g. "Aço Carbono 1020", "Aço Inox 304" */
   material: string
   /** e.g. "3mm", "6mm" — describes the sheet thickness */

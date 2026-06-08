@@ -204,9 +204,22 @@ export function useX() { return useContext(XContext) }
 - **Session:** `sessionStorage` key `forge-erp-session` + cookie `forge_erp_session`
 - **Cargo lookup:** `mockCargos.find(c => c.id === currentCargoId)` — future: Supabase query
 
-### ConjuntosContext
+### ConjuntosContext (Phase 7.3)
 - **State:** `conjuntos: Conjunto[]`, `historico: HistoricoConjunto[]`
 - **Actions:** add, update, remove conjunto; run `SimulacaoItemEstoque`
+- **Phase 7.3 rule:** New `PecaConjunto` entries MUST reference a catalog `Peca` via `pecaId`. Enforced at UI level (catalog selector replaces manual piece entry). `PecaConjunto.material` is empty for new pieces — resolved at quotation time via `ConfiguracaoFabricacao`.
+
+### ConfiguracoesFabricacaoContext (Phase 6.1)
+- **State:** `configuracoes: ConfiguracaoFabricacao[]`, `breakdownsComConfig: CustoPecaBreakdown[]`
+- **Actions:** CRUD; `getByPeca(pecaId)`, `getBreakdownsByPeca(pecaId)`
+- **Computes:** config-aware cost breakdowns via `calcularCustoPecaComConfig`
+
+### OrcamentoConfiguracoesContext (Phase 7 / 7.1 / 7.2)
+- **State:** `selecoesPorItem` (assembly config selections), `pecaItemSelecoesPorItem` (peca item selections), `breakdownsPorItem` (live assembly costs), `snapshotsPorOrcamento`
+- **Actions:** `inicializarConjunto`, `salvarSelecoes`, `salvarPecaItemSelecao`, `criarSnapshot`
+- **Blocking:** `itensSemConfiguracao(itens)` — returns unconfigured items; used by ActionBar
+- **Note:** `configuracaoFabricacaoId` is the primary selection unit (not `materialId`)
+- **Phase 7.2 helpers:** `calcularCustoRascunhoPeca(cfgId)`, `calcularCustoRascunhoConjunto(conjunto, selecoes, qtd)` — live cost computation during quotation creation; `registrarSelecoesCriacao()` — snapshot registration after `criarOrcamento()`
 
 ### DesenvolvimentoContext
 - **State:** `solicitacoes: SolicitacaoProducao[]`, `tarefas: TarefaDesenvolvimento[]`
@@ -336,6 +349,13 @@ Map each `src/types/*.ts` domain type to a Supabase table. Key tables:
 - `programas_cnc`, `solicitacoes_programacao`
 - `usuarios`, `cargos`, `import_audit_log`, `action_audit_log`
 - `maquinas`, `eventos_maquina`
+- `configuracoes_fabricacao` — Phase 6.1
+- `produtos` (internal: `conjuntos`) — Phase 7.3: rename target for Supabase
+- `produto_pecas` (internal: `PecaConjunto`) — Phase 7.3: `peca_id` FK required (NOT NULL)
+- `orcamento_item_configuracoes` — Phase 7 (assembly config selections); also used for creation-time snapshots (Phase 7.2)
+- `peca_item_selecoes` — Phase 7.1 (individual piece config selections); created at quotation creation time (Phase 7.2)
+- `peca_configuracoes_disponiveis` — Phase 7.1 (availability control)
+- `conjunto_cost_snapshots` — Phase 7 (immutable cost history); initial snapshot created at quotation creation (Phase 7.2)
 
 ### Phase 2 — Context Migration
 Replace each `src/mocks/*.ts` import inside contexts with Supabase client calls. The context API surface stays identical — pages do not change.

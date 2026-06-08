@@ -10,9 +10,11 @@ import { DesenvolvimentoProvider } from '@/contexts/DesenvolvimentoContext'
 import { ConjuntosProvider } from '@/contexts/ConjuntosContext'
 import { ProgramacaoProvider }  from '@/contexts/ProgramacaoContext'
 import { OrcamentosProvider }   from '@/contexts/OrcamentosContext'
-import { CustosProvider }       from '@/contexts/CustosContext'
-import { CustosPecasProvider }  from '@/contexts/CustosPecasContext'
-import { TemposProvider }       from '@/contexts/TemposContext'
+import { CustosProvider }                    from '@/contexts/CustosContext'
+import { CustosPecasProvider }               from '@/contexts/CustosPecasContext'
+import { ConfiguracoesFabricacaoProvider }   from '@/contexts/ConfiguracoesFabricacaoContext'
+import { OrcamentoConfiguracoesProvider }    from '@/contexts/OrcamentoConfiguracoesContext'
+import { TemposProvider }                    from '@/contexts/TemposContext'
 import { Toaster } from '@/components/ui/toast'
 
 const geistSans = Geist({
@@ -56,10 +58,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <OrcamentosProvider>
                         <CustosProvider>
                           <CustosPecasProvider>
-                            <TemposProvider>
-                              {children}
-                              <Toaster />
-                            </TemposProvider>
+                            <ConfiguracoesFabricacaoProvider>
+                              <OrcamentoConfiguracoesProvider>
+                                <TemposProvider>
+                                  {children}
+                                  <Toaster />
+                                </TemposProvider>
+                              </OrcamentoConfiguracoesProvider>
+                            </ConfiguracoesFabricacaoProvider>
                           </CustosPecasProvider>
                         </CustosProvider>
                       </OrcamentosProvider>

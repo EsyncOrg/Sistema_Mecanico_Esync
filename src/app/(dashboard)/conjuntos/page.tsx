@@ -35,6 +35,7 @@ import {
   Info,
   Star,
   QrCode,
+  Check,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -51,8 +52,9 @@ import { Input }   from '@/components/ui/input'
 import { Label }   from '@/components/ui/label'
 import { cn }      from '@/lib/utils'
 import { toast }   from '@/lib/toast'
-import { MATERIAIS } from '@/lib/constants'
 import { mockAnalyticsConjuntos } from '@/mocks/conjuntos'
+import { mockPecas }              from '@/mocks/pecas'
+import type { Peca }              from '@/types'
 import type {
   Conjunto,
   PecaConjunto,
@@ -638,10 +640,13 @@ export default function ConjuntosPage() {
     revisao: 'Rev. 01', prioridade: 'media', observacoesTecnicas: '', responsavel: '',
   })
   const [formPecas, setFormPecas] = useState<Omit<PecaConjunto, 'id'>[]>([])
-  const [novaPeca, setNovaPeca] = useState<Omit<PecaConjunto, 'id'>>({
-    codigo: '', descricao: '', quantidade: 1, material: 'Aço Carbono 1020',
-    espessura: 3.0, pesoEstimado: 1.0, observacoes: '', processos: [],
-  })
+  const [novaPecaQtd,       setNovaPecaQtd]       = useState(1)
+  const [novaPecaObs,       setNovaPecaObs]        = useState('')
+  const [novaPecaProcessos, setNovaPecaProcessos]  = useState<SetorProcesso[]>([])
+  // Phase 7.3 — catalog selector state
+  const [selectedCatalogPeca, setSelectedCatalogPeca] = useState<Peca | null>(null)
+  const [pecaSearchQuery,     setPecaSearchQuery]      = useState('')
+  const [pecaSearchOpen,      setPecaSearchOpen]       = useState(false)
   const [expandedFormTree, setExpandedFormTree] = useState(true)
 
   // QR modal
@@ -670,6 +675,17 @@ export default function ConjuntosPage() {
     [historico, searchHistorico]
   )
 
+  // Phase 7.3 — catalog piece search
+  const filteredCatalogPecas = useMemo(() => {
+    const q = pecaSearchQuery.toLowerCase().trim()
+    if (!q) return mockPecas.slice(0, 12)  // show first 12 when not searching
+    return mockPecas.filter((p) =>
+      p.codigo.toLowerCase().includes(q) ||
+      p.descricao.toLowerCase().includes(q) ||
+      p.grupo?.toLowerCase().includes(q)
+    ).slice(0, 10)
+  }, [pecaSearchQuery])
+
   const dashKpis = useMemo(() => {
     const ativos = conjuntos.filter((c) => c.status === 'ativo').length
     const totalPecas = conjuntos.reduce((s, c) => s + c.pecas.length, 0)
@@ -680,22 +696,43 @@ export default function ConjuntosPage() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const togglePecaSetor = useCallback((setor: SetorProcesso) => {
-    setNovaPeca((f) => ({
-      ...f,
-      processos: f.processos.includes(setor) ? f.processos.filter((s) => s !== setor) : [...f.processos, setor],
-    }))
+  // Phase 7.3 — catalog selection handlers
+  const handleSelectCatalogPeca = useCallback((peca: Peca) => {
+    setSelectedCatalogPeca(peca)
+    setPecaSearchQuery(`${peca.codigo} — ${peca.descricao}`)
+    setPecaSearchOpen(false)
+  }, [])
+
+  const toggleNovaPecaSetor = useCallback((setor: SetorProcesso) => {
+    setNovaPecaProcessos((prev) =>
+      prev.includes(setor) ? prev.filter((s) => s !== setor) : [...prev, setor]
+    )
   }, [])
 
   const handleAddPeca = useCallback(() => {
-    if (!novaPeca.codigo.trim() || !novaPeca.descricao.trim()) {
-      toast('error', 'Preencha código e descrição da peça')
+    if (!selectedCatalogPeca) {
+      toast('error', 'Selecione uma peça do catálogo antes de adicionar')
       return
     }
-    setFormPecas((prev) => [...prev, { ...novaPeca }])
-    setNovaPeca({ codigo: '', descricao: '', quantidade: 1, material: 'Aço Carbono 1020', espessura: 3.0, pesoEstimado: 1.0, observacoes: '', processos: [] })
-    toast('success', 'Peça adicionada')
-  }, [novaPeca])
+    setFormPecas((prev) => [...prev, {
+      pecaId:       selectedCatalogPeca.id,
+      codigo:       selectedCatalogPeca.codigo,
+      descricao:    selectedCatalogPeca.descricao,
+      quantidade:   novaPecaQtd,
+      material:     '',  // resolved at quotation time via ConfiguracaoFabricacao
+      espessura:    selectedCatalogPeca.espessura,
+      pesoEstimado: selectedCatalogPeca.peso,
+      observacoes:  novaPecaObs,
+      processos:    novaPecaProcessos,
+    }])
+    // Reset
+    setSelectedCatalogPeca(null)
+    setPecaSearchQuery('')
+    setNovaPecaQtd(1)
+    setNovaPecaObs('')
+    setNovaPecaProcessos([])
+    toast('success', `${selectedCatalogPeca.codigo} adicionada`)
+  }, [selectedCatalogPeca, novaPecaQtd, novaPecaObs, novaPecaProcessos])
 
   const handleSubmitConjunto = useCallback(() => {
     if (!conjForm.codigo.trim() || !conjForm.nome.trim() || !conjForm.cliente.trim()) {
@@ -711,7 +748,11 @@ export default function ConjuntosPage() {
     // Reset
     setConjForm({ codigo: '', nome: '', cliente: '', categoria: 'painel', revisao: 'Rev. 01', prioridade: 'media', observacoesTecnicas: '', responsavel: '' })
     setFormPecas([])
-    setNovaPeca({ codigo: '', descricao: '', quantidade: 1, material: 'Aço Carbono 1020', espessura: 3.0, pesoEstimado: 1.0, observacoes: '', processos: [] })
+    setSelectedCatalogPeca(null)
+    setPecaSearchQuery('')
+    setNovaPecaQtd(1)
+    setNovaPecaObs('')
+    setNovaPecaProcessos([])
     setShowForm(false)
     toast('success', 'Produto criado com sucesso!')
   }, [conjForm, formPecas, criarConjunto])
@@ -1099,70 +1140,189 @@ export default function ConjuntosPage() {
                         </CardContent>
                       </Card>
 
-                      {/* Piece builder */}
+                      {/* Piece builder — Phase 7.3: catalog-driven */}
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm">Estrutura de Peças</CardTitle>
-                          <CardDescription className="text-xs">Defina cada peça que compõe o produto</CardDescription>
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Package size={14} className="text-primary" />
+                            Estrutura de Peças
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Selecione peças já cadastradas no catálogo. Dados técnicos são carregados automaticamente.
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+
+                          {/* Catalog search */}
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold uppercase tracking-wider">
+                              Buscar Peça do Catálogo <span className="text-destructive">*</span>
+                            </Label>
+                            <div className="relative">
+                              <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                  <Input
+                                    placeholder="Buscar por código ou descrição (ex: PCA-0001)…"
+                                    value={pecaSearchQuery}
+                                    onChange={(e) => { setPecaSearchQuery(e.target.value); setPecaSearchOpen(true); setSelectedCatalogPeca(null) }}
+                                    onFocus={() => setPecaSearchOpen(true)}
+                                    className="pl-8 font-mono"
+                                  />
+                                </div>
+                                {selectedCatalogPeca && (
+                                  <button type="button"
+                                    onClick={() => { setSelectedCatalogPeca(null); setPecaSearchQuery('') }}
+                                    className="rounded-lg border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
+                                    Limpar
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Search dropdown */}
+                              <AnimatePresence>
+                                {pecaSearchOpen && !selectedCatalogPeca && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -4 }}
+                                    transition={{ duration: 0.1 }}
+                                    className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-card shadow-xl divide-y divide-border/50"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                  >
+                                    {filteredCatalogPecas.length === 0 ? (
+                                      <p className="px-4 py-3 text-xs text-muted-foreground text-center">
+                                        Nenhuma peça encontrada. Verifique o código ou descrição.
+                                      </p>
+                                    ) : (
+                                      filteredCatalogPecas.map((p) => (
+                                        <button
+                                          key={p.id}
+                                          type="button"
+                                          onClick={() => handleSelectCatalogPeca(p)}
+                                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                                        >
+                                          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                            <Package size={12} className="text-primary" />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-mono text-xs font-bold text-accent">{p.codigo}</span>
+                                              <span className="text-xs text-foreground truncate">{p.descricao}</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground">
+                                              {p.espessura}mm · {p.peso}kg · {p.grupo} · {p.familia}
+                                            </p>
+                                          </div>
+                                          <div className="text-right flex-shrink-0">
+                                            <p className="text-[10px] text-muted-foreground">{p.espessura}mm</p>
+                                            <p className="text-[10px] font-semibold text-foreground">{p.peso}kg</p>
+                                          </div>
+                                        </button>
+                                      ))
+                                    )}
+                                    {mockPecas.length > 0 && (
+                                      <p className="px-4 py-2 text-[10px] text-muted-foreground bg-muted/20">
+                                        {mockPecas.length} peças no catálogo · Digite para filtrar
+                                      </p>
+                                    )}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Peças devem existir no catálogo antes de serem adicionadas ao produto. {' '}
+                              <button type="button" className="text-primary hover:underline">
+                                Ir para Peças
+                              </button>
+                            </p>
+                          </div>
+
+                          {/* Selected piece — read-only info from catalog */}
+                          {selectedCatalogPeca && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                                  Peça selecionada — dados do catálogo (somente leitura)
+                                </p>
+                                <Check size={13} className="text-success" />
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {[
+                                  { label: 'Código',     value: selectedCatalogPeca.codigo,                  mono: true  },
+                                  { label: 'Descrição',  value: selectedCatalogPeca.descricao,                mono: false },
+                                  { label: 'Espessura',  value: `${selectedCatalogPeca.espessura} mm`,        mono: false },
+                                  { label: 'Peso',       value: `${selectedCatalogPeca.peso} kg/un`,          mono: false },
+                                  { label: 'Grupo',      value: selectedCatalogPeca.grupo,                    mono: false },
+                                  { label: 'Família',    value: selectedCatalogPeca.familia,                  mono: false },
+                                ].map(({ label, value, mono }) => (
+                                  <div key={label} className="rounded-lg bg-card border border-border/50 px-2.5 py-1.5">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+                                    <p className={cn('text-xs font-semibold text-foreground mt-0.5 truncate', mono && 'font-mono text-accent')}>
+                                      {value || '—'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Info size={10} />
+                                Material será definido na etapa de orçamento via configuração de fabricação.
+                              </p>
+                            </motion.div>
+                          )}
+
+                          {/* BOM-specific fields (editable) */}
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Código *</Label>
-                              <Input placeholder="LAT-E-001" value={novaPeca.codigo} onChange={(e) => setNovaPeca((f) => ({ ...f, codigo: e.target.value }))} className="font-mono" />
+                              <Label className="text-xs font-semibold uppercase tracking-wider">Qtd. por Produto</Label>
+                              <Input
+                                type="number" min={1}
+                                value={novaPecaQtd}
+                                onChange={(e) => setNovaPecaQtd(parseInt(e.target.value) || 1)}
+                                disabled={!selectedCatalogPeca}
+                                className={cn(!selectedCatalogPeca && 'opacity-40')}
+                              />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Descrição *</Label>
-                              <Input placeholder="Lateral Esquerda 800x600" value={novaPeca.descricao} onChange={(e) => setNovaPeca((f) => ({ ...f, descricao: e.target.value }))} />
+                              <Label className="text-xs font-semibold uppercase tracking-wider">Observações de Montagem</Label>
+                              <Input
+                                placeholder="Dobra 90°, furação M8…"
+                                value={novaPecaObs}
+                                onChange={(e) => setNovaPecaObs(e.target.value)}
+                                disabled={!selectedCatalogPeca}
+                                className={cn(!selectedCatalogPeca && 'opacity-40')}
+                              />
                             </div>
                           </div>
-                          <div className="grid gap-4 sm:grid-cols-4">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Qtd / Prod.</Label>
-                              <Input type="number" min={1} value={novaPeca.quantidade} onChange={(e) => setNovaPeca((f) => ({ ...f, quantidade: parseInt(e.target.value) || 1 }))} />
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Material</Label>
-                              <select
-                                className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-accent"
-                                value={novaPeca.material}
-                                onChange={(e) => setNovaPeca((f) => ({ ...f, material: e.target.value }))}
-                              >
-                                {MATERIAIS.map((m) => <option key={m} value={m}>{m}</option>)}
-                              </select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Esp. (mm)</Label>
-                              <Input type="number" step="0.1" min={0.1} value={novaPeca.espessura} onChange={(e) => setNovaPeca((f) => ({ ...f, espessura: parseFloat(e.target.value) || 1 }))} />
-                            </div>
-                          </div>
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Peso Est. (kg)</Label>
-                              <Input type="number" step="0.01" min={0} value={novaPeca.pesoEstimado} onChange={(e) => setNovaPeca((f) => ({ ...f, pesoEstimado: parseFloat(e.target.value) || 0 }))} />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-semibold uppercase tracking-wider">Observações</Label>
-                              <Input placeholder="Dobra 90°, furação M8..." value={novaPeca.observacoes} onChange={(e) => setNovaPeca((f) => ({ ...f, observacoes: e.target.value }))} />
-                            </div>
-                          </div>
+
                           {/* Process selection */}
-                          <div className="space-y-2">
+                          <div className={cn('space-y-2', !selectedCatalogPeca && 'opacity-40')}>
                             <Label className="text-xs font-semibold uppercase tracking-wider">Setores / Processos</Label>
                             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                               {PROCESS_ORDER.map((s) => (
                                 <SetorToggleBtn
                                   key={s}
                                   setor={s}
-                                  selected={novaPeca.processos.includes(s)}
-                                  onToggle={togglePecaSetor}
+                                  selected={novaPecaProcessos.includes(s)}
+                                  onToggle={selectedCatalogPeca ? toggleNovaPecaSetor : () => {}}
                                 />
                               ))}
                             </div>
                           </div>
-                          <Button variant="outline" className="w-full gap-1.5" onClick={handleAddPeca}>
+                          <Button
+                            variant={selectedCatalogPeca ? 'default' : 'outline'}
+                            className="w-full gap-1.5"
+                            onClick={handleAddPeca}
+                            disabled={!selectedCatalogPeca}
+                          >
                             <Plus size={14} />
-                            Adicionar Peça ao Produto
+                            {selectedCatalogPeca
+                              ? `Adicionar ${selectedCatalogPeca.codigo} ao Produto`
+                              : 'Selecione uma peça do catálogo'}
                           </Button>
                         </CardContent>
                       </Card>

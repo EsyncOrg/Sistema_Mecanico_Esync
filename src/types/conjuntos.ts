@@ -33,16 +33,48 @@ export type PrioridadeConjunto = 'alta' | 'media' | 'baixa'
 
 // ─── Piece inside an assembly ─────────────────────────────────────────────────
 
+// ─── Phase 7.3 — Catalog-Driven BOM ──────────────────────────────────────────
+// Business rule: pieces MUST be selected from the Peca catalog.
+// `pecaId` is required for all pieces created through the standard UI.
+// Legacy mock data (without pecaId) remains compatible — fields fall back
+// to the locally stored copies (codigo, descricao, material, espessura, peso).
+//
+// Ownership:
+//   pecaId → codigo, descricao, espessura, pesoEstimado — owned by Peca catalog
+//   quantidade, processos, observacoes — owned by this BOM entry
+//   material → resolved at quotation time via ConfiguracaoFabricacao (not stored here)
+//
+// Future Supabase: produto_pecas table
+//   FK: peca_id → pecas.id  (required, NOT NULL)
+//   FK: produto_id → produtos.id
+//   Fields: quantidade, processos[], observacoes, id, created_at
+
 export interface PecaConjunto {
   id: string
+  /**
+   * FK → Peca.id (catalog piece).
+   * Required for all pieces created via the UI (Phase 7.3+).
+   * Optional only for backward compatibility with legacy mock data.
+   * When set: codigo, descricao, espessura, pesoEstimado are resolved from catalog.
+   * When missing: local copies are used (deprecated pattern).
+   */
+  pecaId?: string
+  /** Derived from Peca.codigo when pecaId is set. Local copy for legacy/display. */
   codigo: string
+  /** Derived from Peca.descricao when pecaId is set. Local copy for legacy/display. */
   descricao: string
   /** Units of this piece required to build ONE complete assembly */
   quantidade: number
+  /**
+   * Nominal material for display/simulation purposes.
+   * For new catalog-linked pieces: empty string — actual material is determined at
+   * quotation time via ConfiguracaoFabricacao selection (Phase 7.1+).
+   * For legacy pieces: local copy from original BOM data.
+   */
   material: string
-  /** Thickness in mm */
+  /** Derived from Peca.espessura when pecaId is set. Local copy for legacy/display. */
   espessura: number
-  /** Estimated weight per unit in kg */
+  /** Derived from Peca.peso when pecaId is set. Local copy for legacy/display. */
   pesoEstimado: number
   observacoes: string
   /** Which production sectors this piece must pass through */

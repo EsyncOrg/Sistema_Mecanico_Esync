@@ -60,6 +60,14 @@ export interface CustoPecaBreakdown {
   pecaId:     string
   pecaCodigo: string
 
+  // ── Phase 6.1: manufacturing configuration reference ──────────────────────
+  // undefined = legacy breakdown (no configuration, fuzzy material match)
+  // set       = config-aware breakdown (explicit material, process overrides)
+  // Future Supabase: peca_custos.configuracao_id → configuracoes_fabricacao.id
+  configuracaoId?:     string
+  configuracaoCodigo?: string
+  materialId?:         string   // explicit FK for traceability
+
   // ── Cost components (R$) ──────────────────────────────────────────────────
   custoMaterial:    number  // peca.peso × material.valorKg × fatorWaste
   custoEngenharia:  number  // tempoDesenvolvimento / 60 × centro_Engenharia.custoHora

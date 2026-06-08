@@ -20,6 +20,7 @@ import { PROCESSO_FIELD } from '@/types/tempos'
 import { useTempos } from '@/contexts/TemposContext'
 import { useCustos } from '@/contexts/CustosContext'
 import { useCustosPecas } from '@/contexts/CustosPecasContext'
+import { useConfiguracoesFabricacao } from '@/contexts/ConfiguracoesFabricacaoContext'
 import { calcularCustoPecaCompleto } from '@/lib/custos/pecasEngine'
 import { cn } from '@/lib/utils'
 import type { Peca } from '@/types'
@@ -121,6 +122,7 @@ export function EditarPecaModal({
   const { registrarAlteracaoTempo }  = useTempos()
   const { centros, materiais, maquinasCustos } = useCustos()
   const { config: custoConfig, recalcularPeca } = useCustosPecas()
+  const { recalcularConfigsPeca } = useConfiguracoesFabricacao()
   const [form, setForm]              = useState<EditForm | null>(null)
   const [errors, setErrors]          = useState<EditErrors>({})
   const [isLoading, setIsLoading]    = useState(false)
@@ -255,7 +257,8 @@ export function EditarPecaModal({
     })
 
     onSave(updated)
-    recalcularPeca(updated)   // Phase 6: refresh cost breakdown in CustosPecasContext
+    recalcularPeca(updated)          // Phase 6: refresh legacy breakdown
+    recalcularConfigsPeca(updated)   // Phase 6.1: refresh config-aware breakdowns
     setIsLoading(false)
     onOpenChange(false)
     toast('success', `Peça ${updated.codigo} atualizada`, `${changedFields.length} campo(s) alterado(s)`)

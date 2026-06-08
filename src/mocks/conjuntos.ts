@@ -241,6 +241,67 @@ export const mockConjuntos: Conjunto[] = [
     ],
   },
 
+  // ── 5. Conjunto Demo Configurações (Phase 7.1) ─────────────────────────────
+  // Pieces have pecaId linking to catalog entries that already have manufacturing
+  // configurations (cfg-0001..cfg-0007 in mockConfiguracoesFabricacao).
+  // Used to demonstrate and test the Phase 7.1 per-piece config selection flow.
+  {
+    id: 'cnj-007',
+    codigo: 'CONJ-0007',
+    nome: 'Conjunto Demo — Seleção por Configuração',
+    cliente: 'Demonstração Interna',
+    categoria: 'montagem',
+    revisao: 'Rev. 01',
+    prioridade: 'alta',
+    observacoesTecnicas:
+      'Conjunto para validação do fluxo de seleção de configurações de fabricação. ' +
+      'Cada peça possui configurações disponíveis no módulo Custos.',
+    responsavel: 'Carlos Mendes',
+    status: 'ativo',
+    vezesProduzido: 0,
+    quantidadeTotalProduzida: 0,
+    criadoEm: daysAgo(10),
+    atualizadoEm: daysAgo(1),
+    pecas: [
+      {
+        id: 'pcp-101',
+        pecaId: '1',              // PCA-0001 — has cfg-0001, cfg-0002
+        codigo: 'PCA-0001',
+        descricao: 'Flange de Conexão Ø150mm',
+        quantidade: 1,
+        material: 'Aço Carbono / Inox 304',
+        espessura: 12.0,
+        pesoEstimado: 2.10,
+        observacoes: '2 configurações disponíveis — Carbono ou Inox',
+        processos: ['corte', 'montagem'],
+      },
+      {
+        id: 'pcp-102',
+        pecaId: '2',              // PCA-0002 — has cfg-0003, cfg-0004, cfg-0005
+        codigo: 'PCA-0002',
+        descricao: 'Suporte de Fixação do Teto Protetor',
+        quantidade: 2,
+        material: 'Aço Carbono / Inox / Galvanizado',
+        espessura: 6.0,
+        pesoEstimado: 0.80,
+        observacoes: '3 configurações disponíveis — Carbono+Pintura, Inox, Galvanizado',
+        processos: ['corte', 'dobra', 'montagem'],
+      },
+      {
+        id: 'pcp-103',
+        pecaId: '7',              // PCA-0007 — has cfg-0006, cfg-0007
+        codigo: 'PCA-0007',
+        descricao: 'Perfil Dobrado U 80x40mm',
+        quantidade: 4,
+        material: 'Aço Carbono / Galvanizado',
+        espessura: 4.0,
+        pesoEstimado: 5.20,
+        observacoes: '2 configurações disponíveis — Carbono+Pintura, Galvanizado sem pintura',
+        processos: ['corte', 'dobra', 'montagem'],
+      },
+    ],
+  },
+
   // ── 4. Suporte Modular 200mm ────────────────────────────────────────────────
   {
     id: 'cnj-004',
@@ -323,6 +384,10 @@ export const mockEstoquePecas: Record<string, number> = {
   'BRC-SUP-001': 7,
   'CHP-BASE-200':5,
   'ENG-TRAV-001':4,
+  // CONJ-0007 pieces (catalog-linked)
+  'PCA-0001':    3,
+  'PCA-0002':    0,
+  'PCA-0007':    1,
 }
 
 // ─── Production history ───────────────────────────────────────────────────────

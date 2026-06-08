@@ -6,6 +6,7 @@ import {
   FileText, Send, ThumbsUp, ThumbsDown, XCircle, RotateCcw,
   Plus, Trash2, CheckCircle2, AlertCircle, Pencil,
   Package, History, GitBranch, Save, X, FileDown, BookOpen, Factory,
+  Layers, Calculator, Settings,
 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
@@ -18,9 +19,14 @@ import { cn }     from '@/lib/utils'
 import { toast }  from '@/lib/toast'
 import { useAuth }               from '@/contexts/AuthContext'
 import { useOrcamentos }         from '@/contexts/OrcamentosContext'
-import { CatalogSelectorModal }      from '@/components/orcamentos/CatalogSelectorModal'
-import { ConversaoProducaoModal }   from '@/components/orcamentos/ConversaoProducaoModal'
-import { gerarPdfOrcamento }        from '@/lib/orcamentos/gerarPdfOrcamento'
+import { useConjuntos }          from '@/contexts/ConjuntosContext'
+import { useOrcamentoConfiguracoes } from '@/contexts/OrcamentoConfiguracoesContext'
+import { CatalogSelectorModal }          from '@/components/orcamentos/CatalogSelectorModal'
+import { ConversaoProducaoModal }        from '@/components/orcamentos/ConversaoProducaoModal'
+import { ConjuntoMaterialSelectorModal } from '@/components/orcamentos/ConjuntoMaterialSelectorModal'
+import { PecaConfiguracaoSelectorModal } from '@/components/orcamentos/PecaConfiguracaoSelectorModal'
+import { mockPecas }                     from '@/mocks/pecas'
+import { gerarPdfOrcamento }         from '@/lib/orcamentos/gerarPdfOrcamento'
 import type {
   Orcamento,
   OrcamentoItem,
@@ -189,7 +195,14 @@ interface ItemsTabProps {
 }
 
 function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps) {
-  const [catalogOpen, setCatalogOpen] = useState(false)
+  const [catalogOpen,       setCatalogOpen]       = useState(false)
+  const [selectorOpen,      setSelectorOpen]      = useState(false)
+  const [selectorItem,      setSelectorItem]      = useState<OrcamentoItem | null>(null)
+  const [pecaSelectorOpen,  setPecaSelectorOpen]  = useState(false)
+  const [pecaSelectorItem,  setPecaSelectorItem]  = useState<OrcamentoItem | null>(null)
+
+  const { conjuntos }                            = useConjuntos()
+  const { getBreakdown, getPecaItemSelecao }     = useOrcamentoConfiguracoes()
 
   const total = useMemo(
     () => editMode
@@ -255,17 +268,113 @@ function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps)
             items.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">Nenhum item cadastrado.</p>
             ) : (
-              (items as OrcamentoItem[]).map((item) => (
-                <div key={item.id} className="grid grid-cols-[60px_1fr_72px_72px_100px_100px_32px] gap-1 px-3 py-2.5 items-center text-sm">
-                  <span className="font-mono text-[11px] text-muted-foreground">{item.codigo || '—'}</span>
-                  <span className="text-[12px] text-foreground">{item.descricao}</span>
-                  <span className="text-center text-[12px] tabular-nums text-foreground">{item.quantidade}</span>
-                  <span className="text-[11px] text-muted-foreground">{item.unidade}</span>
-                  <span className="text-right text-[11px] tabular-nums text-muted-foreground">{formatBRL(item.valorUnitario)}</span>
-                  <span className="text-right text-[12px] font-semibold tabular-nums text-foreground">{formatBRL(item.valorTotal)}</span>
-                  <span />
-                </div>
-              ))
+              (items as OrcamentoItem[]).map((item) => {
+                const breakdown     = item.tipo === 'conjunto' ? getBreakdown(item.id) : undefined
+                const pecaSelecao   = item.tipo === 'peca' && item.pecaId
+                  ? getPecaItemSelecao(item.id)
+                  : undefined
+                const catalogPeca   = item.tipo === 'peca' && item.pecaId
+                  ? mockPecas.find((p) => p.id === item.pecaId)
+                  : undefined
+
+                return (
+                  <div key={item.id}>
+                    <div className="grid grid-cols-[60px_1fr_72px_72px_100px_100px_32px] gap-1 px-3 py-2.5 items-center text-sm">
+                      <span className="font-mono text-[11px] text-muted-foreground">{item.codigo || '—'}</span>
+                      <div className="min-w-0">
+                        <span className="text-[12px] text-foreground">{item.descricao}</span>
+                        {item.tipo === 'conjunto' && (
+                          <span className="ml-1.5 inline-flex h-4 items-center rounded px-1.5 text-[9px] font-semibold bg-accent/10 text-accent">
+                            conjunto
+                          </span>
+                        )}
+                        {item.tipo === 'peca' && item.pecaId && (
+                          <span className="ml-1.5 inline-flex h-4 items-center rounded px-1.5 text-[9px] font-semibold bg-primary/10 text-primary">
+                            peça
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-center text-[12px] tabular-nums text-foreground">{item.quantidade}</span>
+                      <span className="text-[11px] text-muted-foreground">{item.unidade}</span>
+                      <span className="text-right text-[11px] tabular-nums text-muted-foreground">{formatBRL(item.valorUnitario)}</span>
+                      <span className="text-right text-[12px] font-semibold tabular-nums text-foreground">{formatBRL(item.valorTotal)}</span>
+                      <span />
+                    </div>
+
+                    {/* Phase 7: assembly config row */}
+                    {item.tipo === 'conjunto' && (
+                      <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-muted/30 border border-border/60 px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          {breakdown && breakdown.custoTotal > 0 ? (
+                            <>
+                              <Calculator size={11} className="text-success flex-shrink-0" />
+                              <span className="text-[11px] text-success font-semibold tabular-nums">
+                                Custo calculado: {formatBRL(breakdown.custoTotal)}
+                              </span>
+                              {!breakdown.calculadoComSucesso && (
+                                <span className="text-[10px] text-warning">
+                                  ({breakdown.pecasSemSelecao} peça(s) sem configuração)
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <Layers size={11} className="text-muted-foreground flex-shrink-0" />
+                              <span className="text-[11px] text-muted-foreground">
+                                Selecione configurações para calcular custo
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectorItem(item); setSelectorOpen(true) }}
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <Layers size={11} />
+                          {breakdown?.custoTotal ? 'Alterar Configurações' : 'Selecionar Configurações'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Phase 7.1: peca config row */}
+                    {item.tipo === 'peca' && catalogPeca && (
+                      <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-muted/30 border border-border/60 px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          {pecaSelecao ? (
+                            <>
+                              <Calculator size={11} className="text-success flex-shrink-0" />
+                              <span className="text-[11px] text-success font-semibold">
+                                {pecaSelecao.configuracaoFabricacaoId}
+                              </span>
+                              {pecaSelecao.custoUnitario > 0 && (
+                                <span className="text-[11px] text-muted-foreground tabular-nums">
+                                  · {formatBRL(pecaSelecao.custoUnitario)}/un
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle size={11} className="text-warning flex-shrink-0" />
+                              <span className="text-[11px] text-warning">
+                                Configuração de fabricação obrigatória
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setPecaSelectorItem(item); setPecaSelectorOpen(true) }}
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <Settings size={11} />
+                          {pecaSelecao ? 'Alterar' : 'Selecionar'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })
             )
           )}
         </div>
@@ -294,6 +403,34 @@ function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps)
         onOpenChange={setCatalogOpen}
         onSelect={handleCatalogSelect}
       />
+
+      {/* Phase 7: Assembly material selector */}
+      {selectorItem && selectorItem.conjuntoId && (() => {
+        const cnj = conjuntos.find((c) => c.id === selectorItem.conjuntoId)
+        return cnj ? (
+          <ConjuntoMaterialSelectorModal
+            open={selectorOpen}
+            onOpenChange={(v) => { setSelectorOpen(v); if (!v) setSelectorItem(null) }}
+            orcamentoId={orcamento.id}
+            orcamentoItem={selectorItem}
+            conjunto={cnj}
+          />
+        ) : null
+      })()}
+
+      {/* Phase 7.1: per-peca configuration selector */}
+      {pecaSelectorItem && pecaSelectorItem.pecaId && (() => {
+        const p = mockPecas.find((pc) => pc.id === pecaSelectorItem.pecaId)
+        return p ? (
+          <PecaConfiguracaoSelectorModal
+            open={pecaSelectorOpen}
+            onOpenChange={(v) => { setPecaSelectorOpen(v); if (!v) setPecaSelectorItem(null) }}
+            orcamentoId={orcamento.id}
+            orcamentoItem={pecaSelectorItem}
+            peca={p}
+          />
+        ) : null
+      })()}
     </div>
   )
 }
@@ -388,6 +525,8 @@ function RevisoesTab({ orcamento }: { orcamento: Orcamento }) {
 interface ActionBarProps {
   orcamento:        Orcamento
   canEdit:          boolean
+  /** Phase 7.1: number of items missing required configuration selection */
+  itensPendentes:   number
   onEnviar:         () => void
   onAprovar:        () => void
   onReprovar:       (motivo: string) => void
@@ -395,7 +534,7 @@ interface ActionBarProps {
   onReabrir:        () => void
 }
 
-function ActionBar({ orcamento, canEdit, onEnviar, onAprovar, onReprovar, onCancelar, onReabrir }: ActionBarProps) {
+function ActionBar({ orcamento, canEdit, itensPendentes, onEnviar, onAprovar, onReprovar, onCancelar, onReabrir }: ActionBarProps) {
   const [confirming, setConfirming] = useState<'reprovar' | 'cancelar' | null>(null)
   const [motivo, setMotivo]         = useState('')
 
@@ -416,9 +555,18 @@ function ActionBar({ orcamento, canEdit, onEnviar, onAprovar, onReprovar, onCanc
       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ações do Orçamento</p>
 
       <div className="flex flex-wrap gap-2">
+        {itensPendentes > 0 && (status === 'em_elaboracao' || status === 'enviado') && (
+          <div className="flex items-center gap-2 w-full rounded-lg border border-warning/30 bg-warning/8 px-3 py-2 text-xs text-warning">
+            <AlertCircle size={13} className="flex-shrink-0" />
+            <span>
+              {itensPendentes} item{itensPendentes > 1 ? 's' : ''} sem configuração de fabricação — selecione antes de enviar ou aprovar.
+            </span>
+          </div>
+        )}
+
         {status === 'em_elaboracao' && (
           <>
-            <Button size="sm" className="gap-1.5 h-8 text-xs" onClick={onEnviar}>
+            <Button size="sm" className="gap-1.5 h-8 text-xs" disabled={itensPendentes > 0} onClick={onEnviar}>
               <Send size={12} /> Enviar ao Cliente
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs text-destructive hover:text-destructive"
@@ -429,7 +577,7 @@ function ActionBar({ orcamento, canEdit, onEnviar, onAprovar, onReprovar, onCanc
         )}
         {status === 'enviado' && (
           <>
-            <Button size="sm" className="gap-1.5 h-8 text-xs bg-success hover:bg-success/90 text-white" onClick={onAprovar}>
+            <Button size="sm" className="gap-1.5 h-8 text-xs bg-success hover:bg-success/90 text-white" disabled={itensPendentes > 0} onClick={onAprovar}>
               <ThumbsUp size={12} /> Aprovar
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
@@ -557,8 +705,9 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
   const { atualizarOrcamento, enviarOrcamento, aprovarOrcamento,
           reprovarOrcamento, cancelarOrcamento, reabrirOrcamento,
           criarRevisao }                            = useOrcamentos()
+  const { itensSemConfiguracao }                   = useOrcamentoConfiguracoes()
 
-  const userCanEdit = canEdit('orcamentos')
+  const userCanEdit    = canEdit('orcamentos')
 
   const [activeTab,      setActiveTab]      = useState<TabId>('itens')
   const [editMode,       setEditMode]       = useState(false)
@@ -656,6 +805,7 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
           <ActionBar
             orcamento={orcamento}
             canEdit={userCanEdit}
+            itensPendentes={itensSemConfiguracao(orcamento.itens).length}
             onEnviar={handleEnviar}
             onAprovar={handleAprovar}
             onReprovar={handleReprovar}

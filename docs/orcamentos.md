@@ -1,7 +1,9 @@
 # Orçamentos Module
 
-*Esync ERP — Commercial Quoting System*
-*Phase 1 implemented: 2026-06-01 | Phase 2A implemented: 2026-06-01 | Phase 3 PDF v2 refactored: 2026-06-01*
+*FORGE ERP — Commercial Quoting System*
+*Phase 1 implemented: 2026-06-01 · Phase 2A: 2026-06-01 · Phase 3 PDF v2: 2026-06-01*
+*Phase 7.2 Mandatory Config-First Creation: 2026-06-08*
+*Phase 7.3 Catalog-Driven BOM (data integrity): 2026-06-08*
 
 ---
 
@@ -14,9 +16,52 @@ The Orçamentos module manages the full commercial quoting lifecycle: from initi
 Orçamento (proposta) → Aprovado → Desenvolvimento (OS) → Programação → Produção
 ```
 
+**Phase 7.2 critical rule:** A quotation MUST NOT be created without all material/configuration selections already made. Costs must be known before creation.
+
 **Route:** `/orcamentos`
 **Module ID:** `orcamentos`
 **Nav position:** Second in sidebar, directly after Dashboard
+
+---
+
+## 1.1 Phase 7.2 — Creation-First Configuration Flow
+
+### Previous flow (incorrect)
+```
+Create quotation → Add item → Save → Open → Select materials → Cost appears
+```
+
+### New mandatory flow (Phase 7.2)
+```
+New Quotation
+  → Add piece/conjunto
+  → Select manufacturing configuration (inline, during creation)
+  → Cost calculated instantly
+  → Totals and margin updated instantly
+  → Create Quotation (BLOCKED until all catalog items are configured)
+```
+
+### Blocking rules (NovoOrcamentoModal)
+"Criar Orçamento" is disabled when:
+- Any `tipo='peca'` item with `pecaId` has no `configuracaoFabricacaoId` selected
+- Any `tipo='conjunto'` item has catalog-linked pieces (`peca.pecaId` set) without config
+- Standard validations fail (client name, title, validity date, item descriptions)
+
+### Live cost display
+- **Per catalog peca item:** unit cost from `CustoPecaBreakdown.custoTotal` for the selected config
+- **Per conjunto item:** assembly cost from `calcularCustoConjunto()` for all selected configs
+- **Summary panel:** Total Custo Calculado | Total Orçado (valorUnitario) | Margem %
+
+### Auto-fill on config selection
+When a configuration is selected for a catalog item:
+- `valorUnitario` is automatically set to `custoCalculado` (user can override)
+- Assembly total cost triggers a recompute of `valorUnitario` for conjunto items
+
+### Snapshot on creation
+After `criarOrcamento()` returns, `registrarSelecoesCriacao()` is called immediately:
+- For `tipo='peca'` items: creates a `PecaItemSelecao` with `configuracaoFabricacaoId`
+- For `tipo='conjunto'` items: creates `OrcamentoItemConfiguracao[]` + `ConjuntoCostSnapshot`
+- These snapshots become the baseline for revisions, PDF generation, and production conversion
 
 ---
 
