@@ -40,6 +40,8 @@ interface PecaConfiguracaoSelectorModalProps {
   orcamentoId:   string
   orcamentoItem: OrcamentoItem
   peca:          Peca
+  /** Phase 8 Stabilization: called with the new custoUnitario after confirming */
+  onConfirmar?:  (custoUnitario: number) => void
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -154,7 +156,7 @@ function ConfigCard({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PecaConfiguracaoSelectorModal({
-  open, onOpenChange, orcamentoId, orcamentoItem, peca,
+  open, onOpenChange, orcamentoId, orcamentoItem, peca, onConfirmar,
 }: PecaConfiguracaoSelectorModalProps) {
   const { materiais }                              = useCustos()
   const { getByPeca, breakdownsComConfig, getById } = useConfiguracoesFabricacao()
@@ -180,6 +182,7 @@ export function PecaConfiguracaoSelectorModal({
   function handleConfirmar() {
     if (!selectedId) return
     salvarPecaItemSelecao(orcamentoId, orcamentoItem, selectedId)
+    if (selectedBD) onConfirmar?.(selectedBD.custoTotal)
     onOpenChange(false)
   }
 

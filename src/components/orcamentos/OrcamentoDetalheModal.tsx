@@ -6,7 +6,7 @@ import {
   FileText, Send, ThumbsUp, ThumbsDown, XCircle, RotateCcw,
   Plus, Trash2, CheckCircle2, AlertCircle, Pencil,
   Package, History, GitBranch, Save, X, FileDown, BookOpen, Factory,
-  Layers, Calculator, Settings,
+  Layers, Calculator, Settings, TrendingUp,
 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
@@ -185,16 +185,66 @@ function StatusPill({ status }: { status: StatusOrcamento }) {
   )
 }
 
+// ─── Pricing Summary Card ─────────────────────────────────────────────────────
+
+function PricingSummaryCard({ orcamento }: { orcamento: Orcamento }) {
+  if (!orcamento.precoFinal || orcamento.precoFinal <= 0) return null
+
+  const custo   = orcamento.custoTotalCalculado
+  const preco   = orcamento.precoFinal
+  const lucro   = orcamento.lucroBruto
+  const margem  = orcamento.margemEfetiva
+  const sugerido = orcamento.precoSugerido
+
+  const margemColor = margem == null ? 'text-muted-foreground'
+    : margem >= 20 ? 'text-success'
+    : margem >= 15 ? 'text-foreground'
+    : margem >= 0  ? 'text-warning'
+    : 'text-destructive'
+
+  const rows: { label: string; value: string; cls?: string }[] = []
+  if (custo   != null) rows.push({ label: 'Custo fabricação',   value: formatBRL(custo) })
+  if (sugerido != null && Math.abs(sugerido - preco) > 1)
+    rows.push({ label: 'Preço sugerido', value: formatBRL(sugerido), cls: 'text-muted-foreground' })
+  if (lucro   != null) rows.push({ label: 'Lucro bruto',        value: formatBRL(lucro), cls: lucro >= 0 ? 'text-success' : 'text-destructive' })
+  if (margem  != null) rows.push({ label: 'Margem efetiva',     value: `${margem.toFixed(1)}%`, cls: margemColor })
+  if (orcamento.margemPercentual  != null) rows.push({ label: 'Margem aplicada',  value: `${orcamento.margemPercentual}%` })
+  if (orcamento.impostosPercentual != null) rows.push({ label: 'Impostos',         value: `${orcamento.impostosPercentual}%` })
+  if (orcamento.comissaoPercentual != null) rows.push({ label: 'Comissão',         value: `${orcamento.comissaoPercentual}%` })
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={12} className="text-primary" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Precificação Comercial</p>
+        </div>
+        <span className="text-base font-bold tabular-nums text-primary">{formatBRL(preco)}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        {rows.map(({ label, value, cls }) => (
+          <div key={label} className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span className={cn('text-[11px] font-semibold tabular-nums', cls ?? 'text-foreground')}>{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Items Tab ────────────────────────────────────────────────────────────────
 
 interface ItemsTabProps {
   orcamento:   Orcamento
   editMode:    boolean
   drafts:      ItemDraft[]
-  onDraftChange: (drafts: ItemDraft[]) => void
+  onDraftChange:    (drafts: ItemDraft[]) => void
+  /** Phase 8 Stabilization: called when a config selection changes cost */
+  onUpdateItemCost: (itemId: string, novoValorUnitario: number) => void
 }
 
-function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps) {
+function ItemsTab({ orcamento, editMode, drafts, onDraftChange, onUpdateItemCost }: ItemsTabProps) {
   const [catalogOpen,       setCatalogOpen]       = useState(false)
   const [selectorOpen,      setSelectorOpen]      = useState(false)
   const [selectorItem,      setSelectorItem]      = useState<OrcamentoItem | null>(null)
@@ -398,6 +448,9 @@ function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps)
           </div>
         </div>
       </div>
+      {/* Phase 8: commercial pricing snapshot */}
+      {!editMode && <PricingSummaryCard orcamento={orcamento} />}
+
       <CatalogSelectorModal
         open={catalogOpen}
         onOpenChange={setCatalogOpen}
@@ -414,6 +467,10 @@ function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps)
             orcamentoId={orcamento.id}
             orcamentoItem={selectorItem}
             conjunto={cnj}
+            onAplicar={(custoTotal) => {
+              const qtd = Math.max(1, selectorItem.quantidade)
+              onUpdateItemCost(selectorItem.id, custoTotal / qtd)
+            }}
           />
         ) : null
       })()}
@@ -428,6 +485,9 @@ function ItemsTab({ orcamento, editMode, drafts, onDraftChange }: ItemsTabProps)
             orcamentoId={orcamento.id}
             orcamentoItem={pecaSelectorItem}
             peca={p}
+            onConfirmar={(custoUnitario) => {
+              onUpdateItemCost(pecaSelectorItem.id, custoUnitario)
+            }}
           />
         ) : null
       })()}
@@ -753,6 +813,21 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
     setDrafts([])
   }, [orcamento, drafts, atualizarOrcamento])
 
+  // Phase 8 Stabilization: propagate config-selection cost change to OrcamentosContext
+  const handleUpdateItemCost = useCallback((itemId: string, novoValorUnitario: number) => {
+    if (!orcamento) return
+    const updatedItens = orcamento.itens.map((i) => {
+      if (i.id !== itemId) return i
+      return { ...i, valorUnitario: novoValorUnitario, valorTotal: i.quantidade * novoValorUnitario }
+    })
+    const novoMfgTotal = Math.round(
+      updatedItens
+        .filter((i) => i.tipo === 'conjunto' || (i.tipo === 'peca' && i.pecaId != null))
+        .reduce((s, i) => s + i.valorTotal, 0) * 100
+    ) / 100
+    atualizarOrcamento(orcamento.id, { itens: updatedItens, custoTotalCalculado: novoMfgTotal })
+  }, [orcamento, atualizarOrcamento])
+
   // Status handlers
   const handleEnviar  = () => { if (!orcamento) return; enviarOrcamento(orcamento.id);  toast('success', 'Orçamento enviado ao cliente') }
   const handleAprovar = () => { if (!orcamento) return; aprovarOrcamento(orcamento.id); toast('success', 'Orçamento aprovado') }
@@ -839,7 +914,7 @@ export function OrcamentoDetalheModal({ open, onOpenChange, orcamento }: Orcamen
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
             >
-              {activeTab === 'itens'     && <ItemsTab orcamento={orcamento} editMode={editMode} drafts={drafts} onDraftChange={setDrafts} />}
+              {activeTab === 'itens'     && <ItemsTab orcamento={orcamento} editMode={editMode} drafts={drafts} onDraftChange={setDrafts} onUpdateItemCost={handleUpdateItemCost} />}
               {activeTab === 'historico' && <HistoryTab orcamento={orcamento} />}
               {activeTab === 'revisoes'  && <RevisoesTab orcamento={orcamento} />}
             </motion.div>

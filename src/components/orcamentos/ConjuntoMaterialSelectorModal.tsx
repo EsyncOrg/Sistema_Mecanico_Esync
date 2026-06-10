@@ -48,6 +48,8 @@ interface ConjuntoMaterialSelectorModalProps {
   orcamentoId:   string
   orcamentoItem: OrcamentoItem
   conjunto:      Conjunto
+  /** Phase 8 Stabilization: called with the new custoTotal after applying selections */
+  onAplicar?:    (custoTotal: number) => void
 }
 
 /** Draft: pecaConjuntoId → configuracaoFabricacaoId */
@@ -212,7 +214,7 @@ function ConfigDropdown({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ConjuntoMaterialSelectorModal({
-  open, onOpenChange, orcamentoId, orcamentoItem, conjunto,
+  open, onOpenChange, orcamentoId, orcamentoItem, conjunto, onAplicar,
 }: ConjuntoMaterialSelectorModalProps) {
   const { materiais }                     = useCustos()
   const { config: custoConfig }           = useCustosPecas()
@@ -271,6 +273,7 @@ export function ConjuntoMaterialSelectorModal({
       return sel
     })
     salvarSelecoes(orcamentoItem.id, selecoes)
+    onAplicar?.(liveBreakdown.custoTotal)
     onOpenChange(false)
   }
 

@@ -170,6 +170,12 @@ const orc002Total = orc002Itens.reduce((s, i) => s + i.valorTotal, 0)  // 18_360
 const orc003Total = orc003Itens.reduce((s, i) => s + i.valorTotal, 0)  // 3_530.00
 const orc004Total = orc004Itens.reduce((s, i) => s + i.valorTotal, 0)  // 22_140.00
 
+// ─── Phase 8 pricing helpers ──────────────────────────────────────────────────
+// Realistic seed values for dashboard KPI calculations.
+// custoTotalCalculado = estimated manufacturing cost
+// precoFinal = commercial selling price (maps to valorTotal)
+// margemEfetiva = (precoFinal - custo) / precoFinal × 100
+
 export const mockOrcamentos: Orcamento[] = [
   // ── ORC-2026-001: Aprovado ─────────────────────────────────────────────────
   {
@@ -200,6 +206,16 @@ export const mockOrcamentos: Orcamento[] = [
     dataConversao:          ago(12),
     responsavelConversao:   'Carlos Mendes',
     solicitacaoProducaoId:  'sol-001',
+    // Phase 8: commercial pricing — Perfil Padrão (25% margem, 12% impostos, 5% comissão)
+    perfilComercialId:    'perf-002',
+    margemPercentual:     25,
+    impostosPercentual:   12,
+    comissaoPercentual:   5,
+    custoTotalCalculado:  6_850.00,
+    precoSugerido:        9_719.00,
+    precoFinal:           9_990.00,
+    lucroBruto:           3_140.00,
+    margemEfetiva:        31.4,
     descricao:         'Fornecimento e fabricação de 2 painéis elétricos 800×600mm conforme especificação técnica Rev. 03.',
     observacoes:       'Cliente solicita entrega parcial — 1 painel em 10 dias, 1 painel em 20 dias.',
     responsavel:       'Carlos Mendes',
@@ -231,6 +247,16 @@ export const mockOrcamentos: Orcamento[] = [
     condicoesPagamento:'30/70 — 30% entrada, 70% contra entrega NF',
     prazoEntrega:      '30 dias corridos',
     revisaoAtual:      0,
+    // Phase 8: commercial pricing — Perfil Agressivo (35% margem, 12% impostos, 7% comissão)
+    perfilComercialId:    'perf-003',
+    margemPercentual:     35,
+    impostosPercentual:   12,
+    comissaoPercentual:   7,
+    custoTotalCalculado:  12_800.00,
+    precoSugerido:        19_584.00,
+    precoFinal:           18_360.00,
+    lucroBruto:           5_560.00,
+    margemEfetiva:        30.3,
     descricao:         'Estrutura metálica completa para linha de produção 04, incluindo solda e pintura.',
     observacoes:       'Aguardando aprovação da engenharia do cliente.',
     responsavel:       'Ana Lima',
@@ -258,6 +284,16 @@ export const mockOrcamentos: Orcamento[] = [
     valorTotal:        orc003Total,
     validadeAte:       future(30),
     revisaoAtual:      0,
+    // Phase 8: commercial pricing — Perfil Conservador (15% margem, 12% impostos, 3% comissão)
+    perfilComercialId:    'perf-001',
+    margemPercentual:     15,
+    impostosPercentual:   12,
+    comissaoPercentual:   3,
+    custoTotalCalculado:  2_750.00,
+    precoSugerido:        3_437.50,
+    precoFinal:           3_530.00,
+    lucroBruto:           780.00,
+    margemEfetiva:        22.1,
     descricao:         'Suportes externos e flanges para linha de montagem do cliente.',
     observacoes:       'Verificar disponibilidade de inox 316 no estoque antes de fechar valor.',
     responsavel:       'Roberto Silva',
@@ -288,6 +324,16 @@ export const mockOrcamentos: Orcamento[] = [
     condicoesPagamento:'À vista com 5% de desconto',
     prazoEntrega:      '25 dias úteis',
     revisaoAtual:      0,
+    // Phase 8: commercial pricing — Agressivo; reprovado por preço alto
+    perfilComercialId:    'perf-003',
+    margemPercentual:     35,
+    impostosPercentual:   12,
+    comissaoPercentual:   7,
+    custoTotalCalculado:  16_200.00,
+    precoSugerido:        24_786.00,
+    precoFinal:           22_140.00,
+    lucroBruto:           5_940.00,
+    margemEfetiva:        26.8,
     descricao:         'Fabricação de 3 gabinetes industriais com acabamento em pintura epóxi.',
     observacoes:       'Cliente indicou que o preço está 18% acima do teto de orçamento.',
     observacoesInternas: 'Possível renegociação reduzindo o acabamento de pintura epóxi para esmalte sintético.',

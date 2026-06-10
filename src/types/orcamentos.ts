@@ -199,6 +199,28 @@ export interface Orcamento {
 
   // Future: empresaId for multi-company SaaS
   // empresaId: string
+
+  // ── Phase 8: Commercial Pricing ───────────────────────────────────────────
+  // All optional — backward compat with pre-Phase-8 quotations.
+  // Supabase: stored in `orcamentos` table; snapshot in `pricing_snapshots`.
+  /** FK → PerfilPrecificacao.id; template used when creating the quotation */
+  perfilComercialId?: string
+  /** Margin % applied — copy from profile or user override */
+  margemPercentual?: number
+  /** Taxes % applied — copy from profile or user override */
+  impostosPercentual?: number
+  /** Commission % applied — copy from profile or user override */
+  comissaoPercentual?: number
+  /** Sum of Phase 7.x manufacturing costs (volatile, context-computed) */
+  custoTotalCalculado?: number
+  /** Suggested selling price = custoTotalCalculado × (1 + margem + impostos + comissao) */
+  precoSugerido?: number
+  /** Final selling price set by user (defaults to precoSugerido; drives valorTotal) */
+  precoFinal?: number
+  /** Gross profit = precoFinal − custoTotalCalculado */
+  lucroBruto?: number
+  /** Effective margin % = lucroBruto / precoFinal × 100 */
+  margemEfetiva?: number
 }
 
 // ─── Input Types ──────────────────────────────────────────────────────────────
@@ -219,6 +241,16 @@ export interface NovoOrcamentoInput {
   observacoesComerciais?: string
   conjuntoIds?: string[]
   itens: Omit<OrcamentoItem, 'id' | 'orcamentoId' | 'valorTotal'>[]
+  // Phase 8: commercial pricing snapshot at creation time
+  perfilComercialId?: string
+  margemPercentual?: number
+  impostosPercentual?: number
+  comissaoPercentual?: number
+  custoTotalCalculado?: number
+  precoSugerido?: number
+  precoFinal?: number
+  lucroBruto?: number
+  margemEfetiva?: number
 }
 
 export interface NovoItemOrcamentoInput {
@@ -258,7 +290,16 @@ export interface OrcamentosAnalytics {
   conversoesNoMes: number
   /** Approved quotes not yet converted — commercial pipeline waiting for production */
   pendenteConversao: number
-  // Future Phase 5: per-client conversion rate, average conversion time
+
+  // ── Phase 8: Pricing analytics ────────────────────────────────────────────
+  /** Average effective margin % across quotations that have pricing data */
+  margemMedia: number
+  /** Highest effective margin % among all priced quotations */
+  margemMaxima: number
+  /** Number of quotations with effective margin below 15% target */
+  orcamentosAbaixoMeta: number
+  /** Quotation with the lowest effective margin (for risk monitoring) */
+  orcamentoMenorMargem: { numero: string; margem: number } | null
 }
 
 // ─── Filter / Search ──────────────────────────────────────────────────────────

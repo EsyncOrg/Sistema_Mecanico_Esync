@@ -41,7 +41,6 @@ import {
   calcularCustoConjunto,
   criarConjuntoSnapshot,
   inicializarSelecoes,
-  calcularCustoTotalConjuntos,
   calcularCustoUnPeca,
   buildSelecoesDraft,
 } from '@/lib/custos/conjuntoEngine'
@@ -239,15 +238,20 @@ export function OrcamentoConfiguracoesProvider({ children }: { children: React.R
 
   const getCustoTotalOrcamento = useCallback(
     (_orcamentoId: string, itens: OrcamentoItem[]): number => {
-      const conjItemIds = itens
-        .filter((i) => i.tipo === 'conjunto')
-        .map((i) => i.id)
-      const bds = conjItemIds
-        .map((id) => breakdownsPorItem[id])
-        .filter((b): b is ConjuntoCostBreakdown => !!b)
-      return calcularCustoTotalConjuntos(bds)
+      let total = 0
+      for (const item of itens) {
+        if (item.tipo === 'conjunto') {
+          const bd = breakdownsPorItem[item.id]
+          if (bd) total += bd.custoTotal
+        } else if (item.tipo === 'peca' && item.pecaId) {
+          // Phase 8 Stabilization: include peca item manufacturing costs
+          const sel = pecaItemSelecoesPorItem[item.id]
+          if (sel && sel.custoUnitario > 0) total += sel.custoUnitario * item.quantidade
+        }
+      }
+      return Math.round(total * 100) / 100
     },
-    [breakdownsPorItem]
+    [breakdownsPorItem, pecaItemSelecoesPorItem]
   )
 
   const getPecaItemSelecao = useCallback(

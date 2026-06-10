@@ -98,6 +98,10 @@ const OrcamentosContext = createContext<OrcamentosContextValue>({
     convertidos:        0,
     conversoesNoMes:    0,
     pendenteConversao:  0,
+    margemMedia:        0,
+    margemMaxima:       0,
+    orcamentosAbaixoMeta: 0,
+    orcamentoMenorMargem: null,
   },
   filtros:   { status: 'todos' },
   setFiltros: () => {},
@@ -181,6 +185,20 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
       atualizadoEm:     new Date(),
     }
     orcamento.valorTotal = recalcTotal(orcamento.itens)
+    // Phase 8: snapshot commercial pricing fields if provided
+    if (input.perfilComercialId   != null) orcamento.perfilComercialId   = input.perfilComercialId
+    if (input.margemPercentual    != null) orcamento.margemPercentual    = input.margemPercentual
+    if (input.impostosPercentual  != null) orcamento.impostosPercentual  = input.impostosPercentual
+    if (input.comissaoPercentual  != null) orcamento.comissaoPercentual  = input.comissaoPercentual
+    if (input.custoTotalCalculado != null) orcamento.custoTotalCalculado = input.custoTotalCalculado
+    if (input.precoSugerido       != null) orcamento.precoSugerido       = input.precoSugerido
+    if (input.precoFinal          != null) orcamento.precoFinal          = input.precoFinal
+    if (input.lucroBruto          != null) orcamento.lucroBruto          = input.lucroBruto
+    if (input.margemEfetiva       != null) orcamento.margemEfetiva       = input.margemEfetiva
+    // Phase 8: when commercial pricing engine was applied, use precoFinal as the canonical total
+    if (orcamento.precoFinal != null && orcamento.precoFinal > 0) {
+      orcamento.valorTotal = orcamento.precoFinal
+    }
     setOrcamentos((prev) => [orcamento, ...prev])
     return orcamento
   }, [orcamentos])
@@ -189,6 +207,10 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
     mutate(id, (o) => {
       const updated = { ...o, ...changes, atualizadoEm: new Date() }
       updated.valorTotal = recalcTotal(updated.itens)
+      // Phase 8: keep commercial price as valorTotal when pricing engine was applied
+      if (updated.precoFinal != null && updated.precoFinal > 0) {
+        updated.valorTotal = updated.precoFinal
+      }
       return updated
     })
   }, [mutate])
@@ -350,6 +372,21 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
     })
     const pendenteConversao = aprovados.filter((o) => !o.convertidoParaProducao)
 
+    // Phase 8: pricing analytics
+    const comMargem = orcamentos.filter((o) => o.margemEfetiva != null)
+    const margemMedia = comMargem.length > 0
+      ? Math.round(comMargem.reduce((s, o) => s + (o.margemEfetiva ?? 0), 0) / comMargem.length * 10) / 10
+      : 0
+    const margemMaxima = comMargem.length > 0
+      ? Math.max(...comMargem.map((o) => o.margemEfetiva ?? 0))
+      : 0
+    const orcamentosAbaixoMeta = comMargem.filter((o) => (o.margemEfetiva ?? 0) < 15).length
+    const menorMargem = comMargem.length > 0
+      ? comMargem.reduce((min, o) =>
+          (o.margemEfetiva ?? Infinity) < (min.margemEfetiva ?? Infinity) ? o : min
+        )
+      : null
+
     return {
       totalOrcamentos:    orcamentos.length,
       emElaboracao:       orcamentos.filter((o) => o.status === 'em_elaboracao').length,
@@ -367,6 +404,12 @@ export function OrcamentosProvider({ children }: { children: React.ReactNode }) 
       convertidos:        convertidos.length,
       conversoesNoMes:    conversoesNoMes.length,
       pendenteConversao:  pendenteConversao.length,
+      margemMedia,
+      margemMaxima:       Math.round(margemMaxima * 10) / 10,
+      orcamentosAbaixoMeta,
+      orcamentoMenorMargem: menorMargem
+        ? { numero: menorMargem.numero, margem: menorMargem.margemEfetiva ?? 0 }
+        : null,
     }
   }, [orcamentos])
 

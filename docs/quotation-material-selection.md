@@ -222,3 +222,61 @@ Inside each `PecaSolicitacao` generated during conversion.
 | `src/types/peca-configuracoes-disponiveis.ts` | Was created in Phase 7, now used |
 | `src/mocks/peca-configuracoes-disponiveis.ts` | Seed data for PecaConfiguracaoDisponivel |
 | `src/components/orcamentos/PecaConfiguracaoSelectorModal.tsx` | Config selection for peca items |
+
+---
+
+## 13. Phase 8 Stabilization — Write-Back Architecture
+
+*Implemented: 2026-06-10*
+
+### Problem
+
+After quotation creation, config selections applied via the detail modal updated `OrcamentoConfiguracoesContext` (live reactive breakdowns) but NOT `OrcamentosContext` (stored totals). `valorTotal`, `custoTotalCalculado`, and `OrcamentoItem.valorUnitario` all remained stale.
+
+### Solution
+
+Both config selector modals now accept an optional callback prop carrying the newly computed cost:
+
+```typescript
+// ConjuntoMaterialSelectorModal — calls after salvarSelecoes()
+onAplicar?: (custoTotal: number) => void
+
+// PecaConfiguracaoSelectorModal — calls after salvarPecaItemSelecao()
+onConfirmar?: (custoUnitario: number) => void
+```
+
+The cost values come from **modal-local computed state** (not from context), avoiding React batch-update timing issues.
+
+`ItemsTab` wires both callbacks to `onUpdateItemCost(itemId, novoValorUnitario)`:
+
+```
+conjunto item: novoValorUnitario = custoTotal / item.quantidade
+peca item:     novoValorUnitario = custoUnitario
+```
+
+`OrcamentoDetalheModal.handleUpdateItemCost` propagates to `OrcamentosContext`:
+
+```typescript
+atualizarOrcamento(id, { itens: updatedItens, custoTotalCalculado: novoMfgTotal })
+// atualizarOrcamento applies precoFinal override → valorTotal stays as commercial price
+```
+
+### Edit Accessibility (Issue #4)
+
+Config selector buttons ("Selecionar Configurações", "Alterar", etc.) in `OrcamentoDetalheModal` are rendered in the `!editMode` view **without** status guards. They are accessible in all quotation statuses including `em_elaboracao` after reopen. No code change was needed for Issue #4 — the buttons were always accessible. The perceived "locked" behavior was caused by costs not visibly updating (`valorTotal` stayed stale) rather than the selectors being disabled.
+
+### `getCustoTotalOrcamento` fix
+
+The function in `OrcamentoConfiguracoesContext` previously only summed `tipo='conjunto'` breakdowns:
+
+```typescript
+// Before (broken — peca items ignored):
+filter((i) => i.tipo === 'conjunto')
+  .reduce((s, i) => s + (breakdownsPorItem[i.id]?.custoTotal ?? 0), 0)
+
+// After (fixed — includes catalog peca items):
+for (item of itens) {
+  if (item.tipo === 'conjunto')               total += breakdownsPorItem[item.id]?.custoTotal
+  if (item.tipo === 'peca' && item.pecaId)    total += pecaItemSelecoesPorItem[item.id]?.custoUnitario × quantidade
+}
+```

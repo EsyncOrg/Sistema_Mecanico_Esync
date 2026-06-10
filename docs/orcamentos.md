@@ -4,6 +4,7 @@
 *Phase 1 implemented: 2026-06-01 · Phase 2A: 2026-06-01 · Phase 3 PDF v2: 2026-06-01*
 *Phase 7.2 Mandatory Config-First Creation: 2026-06-08*
 *Phase 7.3 Catalog-Driven BOM (data integrity): 2026-06-08*
+*Phase 8 Commercial Pricing Engine: 2026-06-10*
 
 ---
 
@@ -855,3 +856,127 @@ CREATE TABLE conversion_log (
   empresa_id UUID
 );
 ```
+
+---
+
+## Phase 8 — Commercial Pricing Engine
+
+> Full specification: [docs/commercial-pricing.md](./commercial-pricing.md)
+
+### Summary
+
+Phase 8 adds structured margin/tax/commission pricing to quotation creation. Key changes:
+
+**`valorTotal` is now the commercial price** — when the pricing engine is applied during creation, `valorTotal = precoFinal` (not the sum of manufacturing cost items). This corrects the dashboard totals, analytics, and PDF totals.
+
+**Blocking rule added:** A quotation cannot be created when `totalOrcado === 0 AND totalCusto === 0`. This prevents zero-value quotations from corrupting pipeline analytics.
+
+**Catalog selector fixed:** `CatalogSelectorModal` now uses `useConjuntos()` (live context state) instead of the stale `mockConjuntos` import. Newly created conjuntos appear immediately.
+
+### New `Orcamento` fields (all optional for backward compat)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `perfilComercialId` | `string?` | FK → PerfilPrecificacao used at creation |
+| `margemPercentual` | `number?` | Margin % snapshot |
+| `impostosPercentual` | `number?` | Tax % snapshot |
+| `comissaoPercentual` | `number?` | Commission % snapshot |
+| `custoTotalCalculado` | `number?` | Manufacturing cost at creation time |
+| `precoSugerido` | `number?` | Formula-derived price |
+| `precoFinal` | `number?` | Actual selling price (= `valorTotal` when set) |
+| `lucroBruto` | `number?` | `precoFinal − custoTotalCalculado` |
+| `margemEfetiva` | `number?` | `lucroBruto / precoFinal × 100` |
+
+### New analytics fields
+
+| Field | Description |
+|-------|-------------|
+| `margemMedia` | Average effective margin across priced quotations |
+| `margemMaxima` | Highest effective margin |
+| `orcamentosAbaixoMeta` | Count of quotations with margin < 15% |
+| `orcamentoMenorMargem` | `{ numero, margem }` — lowest margin quotation |
+
+---
+
+## Phase 8 Stabilization — Cost Propagation Fix
+
+*Implemented: 2026-06-10*
+
+### Problem
+
+After quotation creation, changing material/configuration selections in `OrcamentoDetalheModal` updated the live `breakdownsPorItem` display in `OrcamentoConfiguracoesContext` (reactive useMemo) but did **not** write back to `OrcamentosContext`. As a result:
+
+- `orcamento.valorTotal` stayed at the creation-time value
+- `orcamento.custoTotalCalculado` stayed at the creation-time value
+- `OrcamentoItem.valorUnitario` stayed at the creation-time value
+- The "Total geral" strip showed stale/zero cost even after fresh config selection
+
+Additionally, `getCustoTotalOrcamento()` only summed `tipo='conjunto'` item breakdowns — `tipo='peca'` catalog item costs were silently ignored.
+
+### Root Causes
+
+| # | Root Cause | Location |
+|---|-----------|----------|
+| 1 | `ConjuntoMaterialSelectorModal.handleAplicar()` calls `salvarSelecoes()` but never calls `atualizarOrcamento` | `ConjuntoMaterialSelectorModal.tsx` |
+| 2 | `PecaConfiguracaoSelectorModal.handleConfirmar()` calls `salvarPecaItemSelecao()` but never calls `atualizarOrcamento` | `PecaConfiguracaoSelectorModal.tsx` |
+| 3 | `getCustoTotalOrcamento()` filtered `tipo === 'conjunto'` only, losing all `tipo='peca'` item costs | `OrcamentoConfiguracoesContext.tsx` |
+| 4 | No timing-safe mechanism to propagate the newly computed cost from modal to parent context | Architecture gap |
+
+### Fix
+
+**Callback-based write-back (timing-safe):**
+
+1. `ConjuntoMaterialSelectorModal` now accepts an optional `onAplicar?: (custoTotal: number) => void` prop. On `handleAplicar`, the `liveBreakdown.custoTotal` (already computed synchronously in the modal's own closure) is passed to this callback before `onOpenChange(false)`.
+
+2. `PecaConfiguracaoSelectorModal` now accepts an optional `onConfirmar?: (custoUnitario: number) => void` prop. On `handleConfirmar`, `selectedBD.custoTotal` is passed to this callback.
+
+3. `ItemsTab` wires both callbacks to `onUpdateItemCost(itemId, novoValorUnitario)`, which is injected by `OrcamentoDetalheModal`.
+
+4. `OrcamentoDetalheModal.handleUpdateItemCost` computes the updated `itens` array and new `custoTotalCalculado`, then calls `atualizarOrcamento(id, { itens, custoTotalCalculado })`.
+
+5. `atualizarOrcamento` applies `recalcTotal(itens)` and then the `precoFinal` override — so `valorTotal` stays as the commercial price if one was set at creation.
+
+6. `getCustoTotalOrcamento` now includes `tipo='peca'` catalog items: `sel.custoUnitario × item.quantidade` from `pecaItemSelecoesPorItem`.
+
+### Propagation Chain (post-stabilization)
+
+```
+User applies config in detail modal
+  │
+  ├── ConjuntoMaterialSelectorModal.handleAplicar()
+  │     salvarSelecoes() → OrcamentoConfiguracoesContext (breakdownsPorItem recomputes)
+  │     onAplicar(liveBreakdown.custoTotal) → ItemsTab.onUpdateItemCost
+  │
+  └── PecaConfiguracaoSelectorModal.handleConfirmar()
+        salvarPecaItemSelecao() → OrcamentoConfiguracoesContext (pecaItemSelecoesPorItem updates)
+        onConfirmar(selectedBD.custoTotal) → ItemsTab.onUpdateItemCost
+              │
+              ▼
+        OrcamentoDetalheModal.handleUpdateItemCost(itemId, novoValorUnitario)
+          → updatedItens = orcamento.itens.map(i => i.id === itemId ? { ...i, valorUnitario } : i)
+          → novoMfgTotal = sum of conjunto + catalog-peca item.valorTotal
+          → atualizarOrcamento(id, { itens: updatedItens, custoTotalCalculado: novoMfgTotal })
+              │
+              ▼
+        OrcamentosContext.atualizarOrcamento
+          → valorTotal = recalcTotal(itens)
+          → if precoFinal > 0: valorTotal = precoFinal  (commercial price preserved)
+          → custoTotalCalculado = novoMfgTotal
+```
+
+### Timing Safety
+
+The cost passed via `onAplicar`/`onConfirmar` is read from the modal's **local computed state** (`liveBreakdown`, `selectedBD`) — not from `breakdownsPorItem` in context. This bypasses the React batch-update timing issue: the context `useMemo` for `breakdownsPorItem` recomputes on the next render, after the event handler flush. Using the modal's own synchronous calculation avoids reading stale context state.
+
+### Known Limitation (Phase 8.1 scope)
+
+When a config change in the detail modal alters `custoTotalCalculado`, the stored `precoFinal` / `lucroBruto` / `margemEfetiva` are NOT automatically recomputed. They reflect the pricing decision made at creation time. Phase 8.1 will add a "Recalcular Precificação" action to the detail modal that reruns the commercial pricing engine with the current manufacturing cost.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/contexts/OrcamentoConfiguracoesContext.tsx` | `getCustoTotalOrcamento`: now includes `tipo='peca'` items; removed unused `calcularCustoTotalConjuntos` import |
+| `src/components/orcamentos/ConjuntoMaterialSelectorModal.tsx` | Added `onAplicar?` prop; calls it with `liveBreakdown.custoTotal` in `handleAplicar` |
+| `src/components/orcamentos/PecaConfiguracaoSelectorModal.tsx` | Added `onConfirmar?` prop; calls it with `selectedBD.custoTotal` in `handleConfirmar` |
+| `src/components/orcamentos/OrcamentoDetalheModal.tsx` | `ItemsTabProps.onUpdateItemCost`; `handleUpdateItemCost` in main component; wired to both config modals |

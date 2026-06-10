@@ -245,7 +245,38 @@ CREATE POLICY "company_isolation" ON conjunto_cost_snapshots
 
 ---
 
-## 8. Future Integration Hooks
+## 8. Phase 8 Stabilization — Cost Propagation
+
+*Implemented: 2026-06-10*
+
+### Problem
+
+`calcularCustoTotalConjuntos()` (imported into `OrcamentoConfiguracoesContext`) was the ONLY cost aggregator called in `getCustoTotalOrcamento()`. This function only sums `ConjuntoCostBreakdown[]` — it has no awareness of `tipo='peca'` catalog items. Result: `tipo='peca'` manufacturing costs were silently excluded from the quotation's manufacturing total.
+
+Additionally, the config selectors in `OrcamentoDetalheModal` (both assembly and per-peca) computed costs live in their modal state and saved to `OrcamentoConfiguracoesContext`, but never wrote back to `OrcamentosContext`. The two contexts were permanently out of sync post-creation.
+
+### Fix
+
+- `calcularCustoTotalConjuntos` is no longer called in `getCustoTotalOrcamento` (import removed).
+- `getCustoTotalOrcamento` now iterates all `OrcamentoItem[]` and sums both `breakdownsPorItem` (conjunto) and `pecaItemSelecoesPorItem` (peca catalog item) costs.
+- Both config selector modals pass their locally-computed cost to an `onAplicar`/`onConfirmar` callback, which propagates to `atualizarOrcamento` in `OrcamentosContext`.
+
+See `docs/orcamentos.md §Phase 8 Stabilization` and `docs/quotation-material-selection.md §13` for the full write-back architecture.
+
+### Engine function status post-stabilization
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| `calcularCustoUnPeca` | ✅ Active | Used in `OrcamentoConfiguracoesContext.atualizarSelecao` |
+| `calcularCustoConjunto` | ✅ Active | Used in `ConjuntoMaterialSelectorModal` for live preview and `breakdownsPorItem` useMemo |
+| `inicializarSelecoes` | ✅ Active | Called from `OrcamentoConfiguracoesContext.inicializarConjunto` |
+| `criarConjuntoSnapshot` | ✅ Active | Called from `OrcamentoConfiguracoesContext.criarSnapshot` |
+| `calcularCustoTotalConjuntos` | ⚠ Unused | Was used in `getCustoTotalOrcamento`; replaced by the new per-item loop. Still exported from `conjuntoEngine.ts` for future use (e.g. batch reporting). |
+| `buildSelecoesDraft` | ✅ Active | Called from `OrcamentoConfiguracoesContext.registrarSelecoesCriacao` |
+
+---
+
+## 9. Future Integration Hooks
 
 ```typescript
 // [HOOK:SHEET_UTILIZATION] — Phase 6.5

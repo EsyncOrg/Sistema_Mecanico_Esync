@@ -78,7 +78,7 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ size?: numbe
   { id: 'materiais',     label: 'Materiais',         icon: Package    },
   { id: 'mao_obra',      label: 'Mão de Obra',       icon: Users      },
   { id: 'maquinas',      label: 'Máquinas',           icon: Cpu        },
-  { id: 'precificacao',  label: 'Precificação',       icon: TrendingUp },
+  { id: 'precificacao',  label: 'Perfis Comerciais',  icon: TrendingUp },
   { id: 'custos_pecas',  label: 'Custos das Peças',  icon: Package2   },
   { id: 'historico',     label: 'Histórico',          icon: History    },
 ]

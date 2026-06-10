@@ -436,7 +436,9 @@ function renderProjectSection(doc: Doc, orc: Orcamento, y: number): number {
 // ─── Section: Financial summary ───────────────────────────────────────────────
 
 function renderFinancialSummary(doc: Doc, orc: Orcamento, y: number): number {
-  const boxH  = 47
+  const hasPricing = orc.precoFinal != null && orc.precoFinal > 0 && orc.custoTotalCalculado != null
+  // When commercial pricing rows are present the box is taller (66 mm vs 47 mm)
+  const boxH  = hasPricing ? 66 : 47
   const leftX = MX + 8
   const rightX = PW - MX - 8
   const lH    = 6.5
@@ -455,33 +457,65 @@ function renderFinancialSummary(doc: Doc, orc: Orcamento, y: number): number {
   doc.text(String(orc.itens.length), rightX, cy, { align: 'right' })
   cy += lH
 
-  // ── Subtotal ────────────────────────────────────────────────────────────────
+  // ── Subtotal (manufacturing cost or item sum) ────────────────────────────────
+  const subtotalLabel = hasPricing ? 'Custo de fabricação:' : 'Subtotal:'
+  const subtotalValue = hasPricing ? orc.custoTotalCalculado! : orc.valorTotal
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(...C.muted)
-  doc.text('Subtotal:', leftX, cy)
+  doc.text(subtotalLabel, leftX, cy)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(...C.dark)
-  doc.text(fmtBRL(orc.valorTotal), rightX, cy, { align: 'right' })
+  doc.text(fmtBRL(subtotalValue), rightX, cy, { align: 'right' })
   cy += lH
 
-  // ── [HOOK:FINANCEIRO_EXTRA] placeholder rows ─────────────────────────────
-  const ph = [
-    { l: 'Desconto:', v: '-' },
-    { l: 'Frete:',    v: '-' },
-    { l: 'Impostos:', v: '-' },
-  ]
-  const colW = (UW - 16) / 3
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(6.5)
-  doc.setTextColor(...C.mutedLt)
-  ph.forEach((p, i) => {
-    const px = leftX + i * colW
-    doc.text(p.l, px, cy)
-    doc.text(p.v, px + 22, cy)
-  })
-  cy += 5.5
+  if (hasPricing) {
+    // ── Phase 8: commercial pricing breakdown ──────────────────────────────
+    const pricingRows: { l: string; v: string }[] = []
+    if (orc.margemPercentual != null)   pricingRows.push({ l: `Margem (${orc.margemPercentual}%):`,   v: fmtBRL(orc.custoTotalCalculado! * orc.margemPercentual / 100) })
+    if (orc.impostosPercentual != null) pricingRows.push({ l: `Impostos (${orc.impostosPercentual}%):`, v: fmtBRL(orc.custoTotalCalculado! * orc.impostosPercentual / 100) })
+    if (orc.comissaoPercentual != null) pricingRows.push({ l: `Comissão (${orc.comissaoPercentual}%):`, v: fmtBRL(orc.custoTotalCalculado! * orc.comissaoPercentual / 100) })
+    if (orc.lucroBruto != null)         pricingRows.push({ l: 'Lucro bruto:', v: fmtBRL(orc.lucroBruto) })
+    if (orc.margemEfetiva != null)      pricingRows.push({ l: 'Margem efetiva:', v: `${orc.margemEfetiva.toFixed(1)}%` })
+
+    pricingRows.forEach((row) => {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.setTextColor(...C.muted)
+      doc.text(row.l, leftX, cy)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(...C.dark)
+      doc.text(row.v, rightX, cy, { align: 'right' })
+      cy += 5.5
+    })
+
+    if (orc.precoSugerido != null && Math.abs(orc.precoSugerido - orc.precoFinal!) > 1) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(...C.mutedLt)
+      doc.text(`Preço sugerido: ${fmtBRL(orc.precoSugerido)}`, leftX, cy)
+      cy += 5
+    }
+  } else {
+    // ── Legacy placeholder rows (no pricing engine) ──────────────────────────
+    const ph = [
+      { l: 'Desconto:', v: '-' },
+      { l: 'Frete:',    v: '-' },
+      { l: 'Impostos:', v: '-' },
+    ]
+    const colW = (UW - 16) / 3
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(...C.mutedLt)
+    ph.forEach((p, i) => {
+      const px = leftX + i * colW
+      doc.text(p.l, px, cy)
+      doc.text(p.v, px + 22, cy)
+    })
+    cy += 5.5
+  }
 
   // ── Divider ─────────────────────────────────────────────────────────────────
   doc.setDrawColor(...C.border)
@@ -504,11 +538,12 @@ function renderFinancialSummary(doc: Doc, orc: Orcamento, y: number): number {
   doc.setTextColor(...C.tealLight)
   doc.text('TOTAL GERAL', totalBoxX + 5, cy + 6)
 
-  // Right value
+  // Right value — use precoFinal when pricing engine was applied
+  const totalDisplay = hasPricing ? orc.precoFinal! : orc.valorTotal
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(13)
   doc.setTextColor(...C.white)
-  doc.text(fmtBRL(orc.valorTotal), totalBoxX + totalBoxW - 5, cy + 6.5, { align: 'right' })
+  doc.text(fmtBRL(totalDisplay), totalBoxX + totalBoxW - 5, cy + 6.5, { align: 'right' })
 
   return y + boxH + S_GAP
 }

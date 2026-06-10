@@ -13,8 +13,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input }  from '@/components/ui/input'
 import { cn }     from '@/lib/utils'
+import { useConjuntos }  from '@/contexts/ConjuntosContext'
 import { mockPecas }     from '@/mocks/pecas'
-import { mockConjuntos } from '@/mocks/conjuntos'
 import type { CatalogSelection } from '@/types/orcamentos'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,10 +47,16 @@ interface CatalogSelectorModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CatalogSelectorModal({ open, onOpenChange, onSelect }: CatalogSelectorModalProps) {
+  const { conjuntos: allConjuntos }   = useConjuntos()
   const [tab,         setTab]         = useState<CatalogTab>('pecas')
   const [search,      setSearch]      = useState('')
   const [groupFilter, setGroupFilter] = useState('')
   const [selected,    setSelected]    = useState<string | null>(null)
+
+  const activeConjuntos = useMemo(
+    () => allConjuntos.filter((c) => c.status === 'ativo'),
+    [allConjuntos]
+  )
 
   function handleClose() {
     setSearch('')
@@ -79,14 +85,14 @@ export function CatalogSelectorModal({ open, onOpenChange, onSelect }: CatalogSe
 
   // ── Conjuntos data ───────────────────────────────────────────────────────────
 
-  const conjuntoCategories = useMemo(
-    () => [...new Set(mockConjuntos.map((c) => c.categoria))].sort(),
-    []
+  const conjuntoCategories = useMemo<string[]>(
+    () => ([...new Set(activeConjuntos.map((c) => c.categoria))] as string[]).sort(),
+    [activeConjuntos]
   )
 
   const filteredConjuntos = useMemo(() => {
     const q = search.toLowerCase()
-    return mockConjuntos.filter((c) => {
+    return activeConjuntos.filter((c) => {
       if (groupFilter && c.categoria !== groupFilter) return false
       if (!q) return true
       return (
@@ -96,7 +102,7 @@ export function CatalogSelectorModal({ open, onOpenChange, onSelect }: CatalogSe
         c.cliente.toLowerCase().includes(q)
       )
     })
-  }, [search, groupFilter])
+  }, [activeConjuntos, search, groupFilter])
 
   // ── Selection handlers ───────────────────────────────────────────────────────
 
@@ -117,7 +123,7 @@ export function CatalogSelectorModal({ open, onOpenChange, onSelect }: CatalogSe
   }
 
   function selectConjunto(id: string) {
-    const conj = mockConjuntos.find((c) => c.id === id)
+    const conj = activeConjuntos.find((c) => c.id === id)
     if (!conj) return
     const pesoTotal = conj.pecas.reduce((s, p) => s + p.pesoEstimado * p.quantidade, 0)
     onSelect({

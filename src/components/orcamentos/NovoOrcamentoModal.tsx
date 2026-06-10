@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText, Plus, Trash2, AlertCircle, BookOpen,
   Settings, ChevronDown, ChevronUp, Check, Calculator,
-  TrendingUp, Package, ExternalLink,
+  Package, ExternalLink,
 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
@@ -430,59 +430,210 @@ function PcpConfigDropdown({
   )
 }
 
-// ─── Summary Panel ────────────────────────────────────────────────────────────
+// ─── Pricing Panel ────────────────────────────────────────────────────────────
 
-function SummaryPanel({
+function PricingPanel({
   totalCusto,
-  totalOrcado,
+  perfilId,
+  margemPct,
+  impostosPct,
+  comissaoPct,
+  modoPreco,
+  precoFinalB,
+  precoSugerido,
+  precoFinalEfetivo,
+  lucroBruto,
+  margemEfetiva,
+  onPerfilSelect,
+  onMargem,
+  onImpostos,
+  onComissao,
+  onModo,
+  onPrecoFinalB,
 }: {
-  totalCusto:  number
-  totalOrcado: number
+  totalCusto:        number
+  perfilId:          string
+  margemPct:         number
+  impostosPct:       number
+  comissaoPct:       number
+  modoPreco:         'A' | 'B'
+  precoFinalB:       number
+  precoSugerido:     number
+  precoFinalEfetivo: number
+  lucroBruto:        number
+  margemEfetiva:     number
+  onPerfilSelect:    (id: string, margem: number, impostos: number, comissao: number) => void
+  onMargem:          (v: number) => void
+  onImpostos:        (v: number) => void
+  onComissao:        (v: number) => void
+  onModo:            (m: 'A' | 'B') => void
+  onPrecoFinalB:     (v: number) => void
 }) {
-  const margem = totalOrcado > 0 && totalCusto > 0
-    ? r2(((totalOrcado - totalCusto) / totalOrcado) * 100)
-    : null
+  const { perfis } = useCustos()
+  const activePerfis = perfis.filter((p) => p.ativo)
+
+  const hasCost  = totalCusto > 0
+  const hasPrice = precoFinalEfetivo > 0
+
+  const warnNegativo    = hasCost && hasPrice && margemEfetiva < 0
+  const warnAbaixoCusto = hasCost && hasPrice && precoFinalEfetivo < totalCusto && !warnNegativo
+  const warnAbaixoMeta  = hasCost && hasPrice && margemEfetiva >= 0 && margemEfetiva < 15
+  const warnComissao    = lucroBruto > 0 && comissaoPct > 0 &&
+    (totalCusto * (comissaoPct / 100)) > (lucroBruto * 0.8)
+
+  function handleProfileChange(id: string) {
+    const perfil = activePerfis.find((p) => p.id === id)
+    if (perfil) {
+      onPerfilSelect(id, perfil.margemLucroPercentual, perfil.impostosPercentual, perfil.comissaoPercentual)
+    } else {
+      onPerfilSelect('', margemPct, impostosPct, comissaoPct)
+    }
+  }
+
+  const pctFields = [
+    { label: 'Margem %',   value: margemPct,   onChange: onMargem   },
+    { label: 'Impostos %', value: impostosPct, onChange: onImpostos },
+    { label: 'Comissão %', value: comissaoPct, onChange: onComissao },
+  ]
 
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-4">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
-        Resumo do Orçamento
+    <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        Precificação Comercial
       </p>
+
+      {/* Profile selector */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Perfil Comercial</Label>
+        <select
+          value={perfilId}
+          onChange={(e) => handleProfileChange(e.target.value)}
+          className="w-full h-8 rounded-lg border border-border bg-input px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">— Manual (sem perfil) —</option>
+          {activePerfis.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome} — {p.margemLucroPercentual}% margem · {p.impostosPercentual}% impostos · {p.comissaoPercentual}% comissão
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* % inputs */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-lg border border-border bg-card px-3 py-2.5 text-center">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Custo Calculado</p>
-          <p className={cn('text-sm font-bold tabular-nums', totalCusto > 0 ? 'text-foreground' : 'text-muted-foreground')}>
-            {totalCusto > 0 ? fmtBRL(totalCusto) : '—'}
-          </p>
+        {pctFields.map(({ label, value, onChange }) => (
+          <div key={label} className="space-y-1.5">
+            <Label className="text-xs">{label}</Label>
+            <div className="relative">
+              <input
+                type="number" min="0" max="100" step="0.1"
+                value={value}
+                onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+                className="h-8 w-full rounded-lg border border-border bg-input px-2.5 pr-6 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Computed summary */}
+      <div className="rounded-lg border border-border bg-card p-3 space-y-3">
+        {/* Mode toggle */}
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-muted-foreground flex-shrink-0">Modo:</span>
+          <div className="flex gap-1.5">
+            {(['A', 'B'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onModo(m)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all',
+                  modoPreco === m
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {m === 'A' ? 'A — Calcular preço' : 'B — Calcular margem'}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-center">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Preço Orçado</p>
-          <p className={cn('text-sm font-bold tabular-nums', totalOrcado > 0 ? 'text-primary' : 'text-muted-foreground')}>
-            {totalOrcado > 0 ? fmtBRL(totalOrcado) : '—'}
-          </p>
+
+        {/* Summary rows */}
+        <div className="space-y-1.5 text-[11px]">
+          {[
+            { label: 'Custo fabricação', val: hasCost ? fmtBRL(totalCusto) : '—', cls: 'text-foreground' },
+            { label: 'Preço sugerido',   val: precoSugerido > 0 ? fmtBRL(precoSugerido) : '—', cls: 'text-primary' },
+            {
+              label: 'Lucro bruto',
+              val:   hasCost && hasPrice ? fmtBRL(lucroBruto) : '—',
+              cls:   lucroBruto > 0 ? 'text-success' : lucroBruto < 0 ? 'text-destructive' : 'text-muted-foreground',
+            },
+            {
+              label: 'Margem efetiva',
+              val:   hasCost && hasPrice ? `${margemEfetiva.toFixed(1)}%` : '—',
+              cls:   !hasCost || !hasPrice ? 'text-muted-foreground' :
+                     margemEfetiva >= 20  ? 'text-success' :
+                     margemEfetiva >= 15  ? 'text-foreground' :
+                     margemEfetiva >= 0   ? 'text-warning' : 'text-destructive',
+            },
+          ].map(({ label, val, cls }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-muted-foreground">{label}</span>
+              <span className={cn('font-semibold tabular-nums', cls)}>{val}</span>
+            </div>
+          ))}
         </div>
-        <div className={cn(
-          'rounded-lg border px-3 py-2.5 text-center',
-          margem === null ? 'border-border bg-card' :
-          margem >= 20    ? 'border-success/30 bg-success/5' :
-          margem >= 0     ? 'border-warning/30 bg-warning/5' :
-                            'border-destructive/30 bg-destructive/5'
-        )}>
-          <p className="text-[10px] text-muted-foreground mb-0.5">Margem</p>
-          <p className={cn('text-sm font-bold tabular-nums',
-            margem === null ? 'text-muted-foreground' :
-            margem >= 20   ? 'text-success' :
-            margem >= 0    ? 'text-warning' : 'text-destructive'
-          )}>
-            {margem !== null ? `${margem.toFixed(1)}%` : '—'}
-          </p>
+
+        {/* Final price */}
+        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2.5">
+          <span className="text-xs font-semibold text-foreground">Preço Final</span>
+          {modoPreco === 'A' ? (
+            <span className={cn('text-base font-bold tabular-nums',
+              precoFinalEfetivo > 0 ? 'text-primary' : 'text-muted-foreground')}>
+              {precoFinalEfetivo > 0 ? fmtBRL(precoFinalEfetivo) : '—'}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">R$</span>
+              <input
+                type="number" min="0" step="0.01"
+                value={precoFinalB > 0 ? precoFinalB : ''}
+                onChange={(e) => onPrecoFinalB(parseFloat(e.target.value) || 0)}
+                placeholder={precoSugerido > 0 ? precoSugerido.toFixed(2) : '0,00'}
+                className="w-36 h-8 rounded-lg border border-primary/40 bg-primary/5 px-2.5 text-right text-sm font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          )}
         </div>
       </div>
-      {totalCusto > 0 && totalOrcado === 0 && (
-        <p className="mt-2 text-[11px] text-warning flex items-center gap-1">
-          <TrendingUp size={11} />
-          Preencha o Valor Unitário para ver a margem.
-        </p>
+
+      {/* Warnings */}
+      {(warnNegativo || warnAbaixoCusto || warnAbaixoMeta || warnComissao) && (
+        <div className="space-y-1">
+          {warnNegativo && (
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
+              <AlertCircle size={11} />Margem negativa — preço abaixo do custo de fabricação.
+            </p>
+          )}
+          {warnAbaixoCusto && (
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
+              <AlertCircle size={11} />Preço final abaixo do custo de fabricação.
+            </p>
+          )}
+          {warnAbaixoMeta && (
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-warning">
+              <AlertCircle size={11} />Margem efetiva abaixo da meta de 15%.
+            </p>
+          )}
+          {warnComissao && (
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-warning">
+              <AlertCircle size={11} />Comissão consome mais de 80% do lucro bruto.
+            </p>
+          )}
+        </div>
       )}
     </div>
   )
@@ -520,6 +671,14 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
   const [items,       setItems]       = useState<ItemDraft[]>([blankItem()])
   const [catalogOpen, setCatalogOpen] = useState(false)
 
+  // ── Phase 8: Commercial Pricing ─────────────────────────────────────────────
+  const [perfilId,    setPerfilId]    = useState('')
+  const [margemPct,   setMargemPct]   = useState(25)
+  const [impostosPct, setImpostosPct] = useState(12)
+  const [comissaoPct, setComissaoPct] = useState(5)
+  const [modoPreco,   setModoPreco]   = useState<'A' | 'B'>('A')
+  const [precoFinalB, setPrecoFinalB] = useState(0)
+
   // ── Live cost calculation ────────────────────────────────────────────────────
   const custosPorItem = useMemo<Record<string, number>>(() => {
     const result: Record<string, number> = {}
@@ -555,6 +714,21 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
     [items]
   )
 
+  // ── Phase 8: Pricing computations ───────────────────────────────────────────
+  const precoSugerido = useMemo(
+    () => totalCusto > 0
+      ? r2(totalCusto * (1 + margemPct / 100 + impostosPct / 100 + comissaoPct / 100))
+      : 0,
+    [totalCusto, margemPct, impostosPct, comissaoPct]
+  )
+  const precoFinalEfetivo = modoPreco === 'A'
+    ? precoSugerido
+    : (precoFinalB > 0 ? precoFinalB : precoSugerido)
+  const lucroBruto = precoFinalEfetivo > 0 && totalCusto > 0
+    ? r2(precoFinalEfetivo - totalCusto) : 0
+  const margemEfetiva = precoFinalEfetivo > 0
+    ? r2((lucroBruto / precoFinalEfetivo) * 100) : 0
+
   // ── Blocking: items missing required config ──────────────────────────────────
   const bloqueios = useMemo<string[]>(() => {
     const reasons: string[] = []
@@ -585,8 +759,9 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
     if (!titulo.trim())        e.push('Título do projeto é obrigatório')
     if (!validade)             e.push('Data de validade é obrigatória')
     if (items.some((i) => !i.descricao.trim())) e.push('Todos os itens precisam de descrição')
+    if (totalOrcado === 0 && totalCusto === 0)  e.push('Adicione pelo menos um item com valor ou configure os custos de fabricação')
     return e
-  }, [clienteNome, titulo, validade, items])
+  }, [clienteNome, titulo, validade, items, totalOrcado, totalCusto])
 
   const canCreate = errors.length === 0 && bloqueios.length === 0
 
@@ -648,6 +823,23 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
     [conjuntos, calcularCustoRascunhoConjunto]
   )
 
+  // ── Phase 8: Pricing handlers ────────────────────────────────────────────────
+
+  const handlePerfilSelect = useCallback(
+    (id: string, margem: number, impostos: number, comissao: number) => {
+      setPerfilId(id)
+      setMargemPct(margem)
+      setImpostosPct(impostos)
+      setComissaoPct(comissao)
+    },
+    []
+  )
+
+  const handleModoChange = useCallback((m: 'A' | 'B') => {
+    setModoPreco(m)
+    if (m === 'B' && precoFinalB <= 0) setPrecoFinalB(precoSugerido)
+  }, [precoFinalB, precoSugerido])
+
   // ── Catalog selection ────────────────────────────────────────────────────────
 
   const handleCatalogSelect = useCallback((sel: CatalogSelection) => {
@@ -661,6 +853,8 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
     setTitulo(''); setDescricao(''); setObservacoes('')
     setPrioridade('media'); setValidade('')
     setItems([blankItem()])
+    setPerfilId(''); setMargemPct(25); setImpostosPct(12); setComissaoPct(5)
+    setModoPreco('A'); setPrecoFinalB(0)
   }
 
   function handleClose() { reset(); onOpenChange(false) }
@@ -699,6 +893,20 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
         valorUnitario: i.valorUnitario,
         posicao:       idx + 1,
       })),
+      // Phase 8: commercial pricing snapshot
+      ...(totalCusto > 0 ? {
+        perfilComercialId:   perfilId || undefined,
+        margemPercentual:    margemPct,
+        impostosPercentual:  impostosPct,
+        comissaoPercentual:  comissaoPct,
+        custoTotalCalculado: totalCusto,
+        ...(precoSugerido       > 0 && { precoSugerido }),
+        ...(precoFinalEfetivo   > 0 && {
+          precoFinal:    precoFinalEfetivo,
+          lucroBruto,
+          margemEfetiva,
+        }),
+      } : {}),
     })
 
     // Register all config selections as immutable snapshots
@@ -1017,9 +1225,27 @@ export function NovoOrcamentoModal({ open, onOpenChange }: NovoOrcamentoModalPro
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Pricing panel — always visible once items have values */}
           {(totalCusto > 0 || totalOrcado > 0) && (
-            <SummaryPanel totalCusto={totalCusto} totalOrcado={totalOrcado} />
+            <PricingPanel
+              totalCusto={totalCusto}
+              perfilId={perfilId}
+              margemPct={margemPct}
+              impostosPct={impostosPct}
+              comissaoPct={comissaoPct}
+              modoPreco={modoPreco}
+              precoFinalB={precoFinalB}
+              precoSugerido={precoSugerido}
+              precoFinalEfetivo={precoFinalEfetivo}
+              lucroBruto={lucroBruto}
+              margemEfetiva={margemEfetiva}
+              onPerfilSelect={handlePerfilSelect}
+              onMargem={setMargemPct}
+              onImpostos={setImpostosPct}
+              onComissao={setComissaoPct}
+              onModo={handleModoChange}
+              onPrecoFinalB={setPrecoFinalB}
+            />
           )}
 
           {/* Blocking warnings */}
